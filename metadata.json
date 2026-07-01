@@ -1,0 +1,6 @@
+{
+  "name": "MAUI Kiosk Parent Control Companion",
+  "description": "An interactive architecture simulator, visualizer, and customizable C# .NET MAUI code scaffolding generator for Family Link-compatible parental controls.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
