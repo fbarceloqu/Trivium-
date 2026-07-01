@@ -37,41 +37,133 @@ data class SummaryResult(
 object ChallengeEngine {
 
     // ---------------- MATEMÁTICAS ----------------
-    fun generateMath(difficulty: Difficulty): MathQuestion = when (difficulty) {
-        Difficulty.EASY -> {
-            val n1 = Random.nextInt(3, 15)
-            val n2 = Random.nextInt(2, 11)
-            val ans = n1 + n2
-            MathQuestion(
-                question = "¿Cuánto es $n1 + $n2?",
-                options = distinctOptions(ans, listOf(ans + 2, ans - 3, ans * 2)),
-                answer = ans.toString(),
-                explanation = "Suma directa: $n1 + $n2 = $ans."
-            )
+    private val names = listOf("María", "Luis", "Ana", "Pedro", "Sofía", "Diego", "Lucía", "Mateo")
+    private val things = listOf("manzanas", "canicas", "lápices", "galletas", "stickers", "monedas")
+
+    /**
+     * Genera un problema de matemáticas mezclando OPERACIONES directas y
+     * SITUACIONES (problemas de contexto). [exclude] evita repetir el mismo
+     * enunciado al avanzar al siguiente ejercicio.
+     */
+    fun generateMath(difficulty: Difficulty, exclude: String? = null): MathQuestion {
+        val generators: List<() -> MathQuestion> = when (difficulty) {
+            Difficulty.EASY ->
+                listOf(::opAddition, ::opSubtraction, ::wordAddition, ::wordSubtraction)
+            Difficulty.MEDIUM ->
+                listOf(::opMultiplication, ::opDivision, ::wordMultiplication, ::wordDivision)
+            Difficulty.HARD ->
+                listOf(::opLinear, ::wordLinear, ::wordPurchase, ::wordPercentage)
         }
-        Difficulty.MEDIUM -> {
-            val n1 = Random.nextInt(4, 12)
-            val n2 = Random.nextInt(3, 10)
-            val ans = n1 * n2
-            MathQuestion(
-                question = "¿Cuánto es $n1 × $n2?",
-                options = distinctOptions(ans, listOf(ans + 4, ans - 6, ans + 10)),
-                answer = ans.toString(),
-                explanation = "Multiplicando $n1 por $n2 resulta en $ans."
-            )
+        var q = generators.random().invoke()
+        var tries = 0
+        while (exclude != null && q.question == exclude && tries < 6) {
+            q = generators.random().invoke()
+            tries++
         }
-        Difficulty.HARD -> {
-            val x = Random.nextInt(3, 10)
-            val coeff = Random.nextInt(2, 5)
-            val constant = Random.nextInt(1, 11)
-            val rightSide = coeff * x + constant
-            MathQuestion(
-                question = "Resuelve para X:  ${coeff}X + $constant = $rightSide",
-                options = distinctOptions(x, listOf(x + 2, x - 1, x * 2)),
-                answer = x.toString(),
-                explanation = "Restamos $constant: ${coeff}X = ${rightSide - constant}. Dividimos entre $coeff: X = $x."
-            )
-        }
+        return q
+    }
+
+    // --- Operaciones directas ---
+    private fun opAddition(): MathQuestion {
+        val a = Random.nextInt(3, 15); val b = Random.nextInt(2, 11); val ans = a + b
+        return MathQuestion("¿Cuánto es $a + $b?",
+            distinctOptions(ans, listOf(ans + 2, ans - 3, ans + 5)), ans.toString(),
+            "Suma directa: $a + $b = $ans.")
+    }
+
+    private fun opSubtraction(): MathQuestion {
+        val a = Random.nextInt(8, 20); val b = Random.nextInt(2, a); val ans = a - b
+        return MathQuestion("¿Cuánto es $a − $b?",
+            distinctOptions(ans, listOf(ans + 2, ans + 1, ans + 4)), ans.toString(),
+            "Resta directa: $a − $b = $ans.")
+    }
+
+    private fun opMultiplication(): MathQuestion {
+        val a = Random.nextInt(4, 12); val b = Random.nextInt(3, 10); val ans = a * b
+        return MathQuestion("¿Cuánto es $a × $b?",
+            distinctOptions(ans, listOf(ans + 4, ans - 6, ans + 10)), ans.toString(),
+            "Multiplicando $a por $b resulta en $ans.")
+    }
+
+    private fun opDivision(): MathQuestion {
+        val b = Random.nextInt(2, 10); val ans = Random.nextInt(2, 10); val a = b * ans
+        return MathQuestion("¿Cuánto es $a ÷ $b?",
+            distinctOptions(ans, listOf(ans + 1, ans + 2, ans - 1)), ans.toString(),
+            "$a ÷ $b = $ans.")
+    }
+
+    private fun opLinear(): MathQuestion {
+        val x = Random.nextInt(3, 10); val coeff = Random.nextInt(2, 5); val c = Random.nextInt(1, 11)
+        val right = coeff * x + c
+        return MathQuestion("Resuelve para X:  ${coeff}X + $c = $right",
+            distinctOptions(x, listOf(x + 2, x - 1, x + 3)), x.toString(),
+            "Restamos $c: ${coeff}X = ${right - c}. Dividimos entre $coeff: X = $x.")
+    }
+
+    // --- Situaciones (problemas de contexto) ---
+    private fun wordAddition(): MathQuestion {
+        val n = names.random(); val o = things.random()
+        val a = Random.nextInt(3, 15); val b = Random.nextInt(2, 10); val ans = a + b
+        return MathQuestion(
+            "$n tenía $a $o y consiguió $b más. ¿Cuántas $o tiene ahora?",
+            distinctOptions(ans, listOf(ans + 2, ans - 3, ans + 4)), ans.toString(),
+            "Hay que sumar: $a + $b = $ans.")
+    }
+
+    private fun wordSubtraction(): MathQuestion {
+        val n = names.random(); val o = things.random()
+        val a = Random.nextInt(8, 20); val b = Random.nextInt(2, a); val ans = a - b
+        return MathQuestion(
+            "$n tenía $a $o y regaló $b. ¿Cuántas $o le quedan?",
+            distinctOptions(ans, listOf(ans + 2, ans + 1, ans + 3)), ans.toString(),
+            "Hay que restar: $a − $b = $ans.")
+    }
+
+    private fun wordMultiplication(): MathQuestion {
+        val o = things.random(); val boxes = Random.nextInt(3, 9); val per = Random.nextInt(3, 9)
+        val ans = boxes * per
+        return MathQuestion(
+            "Cada caja trae $per $o. Si hay $boxes cajas, ¿cuántas $o hay en total?",
+            distinctOptions(ans, listOf(ans + boxes, ans - per, ans + 5)), ans.toString(),
+            "Multiplicamos: $boxes × $per = $ans.")
+    }
+
+    private fun wordDivision(): MathQuestion {
+        val o = things.random(); val per = Random.nextInt(2, 9); val kids = Random.nextInt(2, 8)
+        val total = per * kids; val ans = per
+        return MathQuestion(
+            "Se reparten $total $o en partes iguales entre $kids niños. ¿Cuántas le tocan a cada uno?",
+            distinctOptions(ans, listOf(ans + 1, ans + 2, ans - 1)), ans.toString(),
+            "Dividimos: $total ÷ $kids = $ans.")
+    }
+
+    private fun wordLinear(): MathQuestion {
+        val x = Random.nextInt(2, 11); val m = Random.nextInt(2, 5); val b = Random.nextInt(1, 10)
+        val result = m * x + b
+        return MathQuestion(
+            "Pienso un número, lo multiplico por $m y le sumo $b; obtengo $result. ¿Qué número pensé?",
+            distinctOptions(x, listOf(x + 1, x + 2, x - 1)), x.toString(),
+            "Planteamos ${m}·n + $b = $result → n = ($result − $b) ÷ $m = $x.")
+    }
+
+    private fun wordPurchase(): MathQuestion {
+        val n = names.random(); val count = Random.nextInt(2, 6)
+        val unit = Random.nextInt(8, 20); val ship = Random.nextInt(5, 15)
+        val total = count * unit + ship; val ans = unit
+        return MathQuestion(
+            "$n compró $count cuadernos y pagó \$$total en total, incluidos \$$ship de envío. ¿Cuánto costó cada cuaderno?",
+            distinctOptions(ans, listOf(ans + 2, ans - 1, ans + 4)), ans.toString(),
+            "Quitamos el envío y dividimos: (\$$total − \$$ship) ÷ $count = \$$ans.")
+    }
+
+    private fun wordPercentage(): MathQuestion {
+        val price = Random.nextInt(1, 11) * 20
+        val disc = listOf(10, 20, 25, 50).random()
+        val off = price * disc / 100; val ans = price - off
+        return MathQuestion(
+            "Un artículo de \$$price tiene $disc% de descuento. ¿Cuánto pagas al final?",
+            distinctOptions(ans, listOf(ans + 5, ans - 5, price)), ans.toString(),
+            "$disc% de \$$price = \$$off; entonces \$$price − \$$off = \$$ans.")
     }
 
     private fun distinctOptions(correct: Int, distractors: List<Int>): List<String> {

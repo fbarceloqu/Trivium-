@@ -80,7 +80,11 @@ fun KioskScreen(
         Spacer(Modifier.height(16.dp))
 
         when (stage) {
-            Stage.MATH -> MathStage(config.difficulty, config.mathTarget) { stage = Stage.ENGLISH }
+            Stage.MATH -> MathStage(
+                difficulty = config.difficulty,
+                total = config.mathTotal,
+                requiredCorrect = config.mathRequiredCorrect
+            ) { stage = Stage.ENGLISH }
             Stage.ENGLISH -> EnglishStage(config.englishTarget) { stage = Stage.READING }
             Stage.READING -> ReadingStage(onApproved = onAllComplete)
         }
@@ -117,52 +121,63 @@ private fun Chip(label: String, active: Boolean, modifier: Modifier = Modifier) 
 @Composable
 private fun MathStage(
     difficulty: com.controlparental.kioscosuave.Difficulty,
-    target: Int,
+    total: Int,
+    requiredCorrect: Int,
     onDone: () -> Unit
 ) {
-    var count by remember { mutableIntStateOf(0) }
+    var correct by remember { mutableIntStateOf(0) }
+    var attempts by remember { mutableIntStateOf(0) }
     var question by remember { mutableStateOf(ChallengeEngine.generateMath(difficulty)) }
     var selected by remember { mutableStateOf<String?>(null) }
-    var correct by remember { mutableStateOf<Boolean?>(null) }
+    var result by remember { mutableStateOf<Boolean?>(null) } // null = sin responder aún
+
+    val done = correct >= requiredCorrect
+    val accuracy = if (attempts > 0) (correct * 100 / attempts) else 0
 
     Text(
-        "Matemáticas (${count + 1} de $target)",
+        "Matemáticas · necesitas $requiredCorrect de $total (80%)",
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.primary
+    )
+    Text(
+        "Aciertos: $correct/$requiredCorrect · Intentos: $attempts · Precisión: $accuracy%",
+        style = MaterialTheme.typography.bodySmall
     )
     Spacer(Modifier.height(8.dp))
     QuestionCard(question.question)
     Spacer(Modifier.height(12.dp))
 
-    OptionsGrid(
-        options = question.options,
-        selected = selected,
-        correctFlag = correct
-    ) { opt ->
-        if (correct == true) return@OptionsGrid
+    // Cada respuesta (correcta o no) bloquea el ejercicio; NO se reintenta el mismo.
+    OptionsGrid(options = question.options, selected = selected, correctFlag = result) { opt ->
+        if (result != null) return@OptionsGrid
         selected = opt
-        correct = opt == question.answer
-        if (correct == true) count++
+        val ok = opt == question.answer
+        result = ok
+        attempts++
+        if (ok) correct++
     }
 
-    correct?.let { ok ->
+    result?.let { ok ->
         Spacer(Modifier.height(12.dp))
-        FeedbackBox(ok, if (ok) question.explanation else "Inténtalo de nuevo.")
-        if (ok) {
-            Spacer(Modifier.height(8.dp))
-            Button(
-                onClick = {
-                    if (count >= target) {
-                        onDone()
-                    } else {
-                        question = ChallengeEngine.generateMath(difficulty)
-                        selected = null
-                        correct = null
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) { Text(if (count >= target) "Continuar a Inglés" else "Siguiente") }
-        }
+        FeedbackBox(
+            ok,
+            if (ok) "¡Correcto! ${question.explanation}"
+            else "La respuesta correcta era ${question.answer}. ${question.explanation}"
+        )
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = {
+                if (correct >= requiredCorrect) {
+                    onDone()
+                } else {
+                    // Siempre un ejercicio DIFERENTE al recién resuelto.
+                    question = ChallengeEngine.generateMath(difficulty, exclude = question.question)
+                    selected = null
+                    result = null
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(if (done) "Continuar a Inglés" else "Siguiente ejercicio") }
     }
 }
 

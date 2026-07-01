@@ -23,7 +23,8 @@ enum class Difficulty { EASY, MEDIUM, HARD }
  */
 data class ChallengeConfig(
     val difficulty: Difficulty,
-    val mathTarget: Int,
+    val mathTotal: Int,           // tamaño del bloque de matemáticas
+    val mathRequiredCorrect: Int, // aciertos necesarios para aprobar (≈ 80% del bloque)
     val englishTarget: Int,
     val readingTarget: Int
 )
@@ -36,13 +37,15 @@ data class ChildProfile(
         get() = when (grade) {
             GradeLevel.PRIMARIA -> ChallengeConfig(
                 difficulty = Difficulty.EASY,
-                mathTarget = 5,
+                mathTotal = 5,
+                mathRequiredCorrect = 4, // 80% de 5
                 englishTarget = 2,
                 readingTarget = 1
             )
             GradeLevel.SECUNDARIA -> ChallengeConfig(
                 difficulty = Difficulty.HARD,
-                mathTarget = 8,
+                mathTotal = 10,
+                mathRequiredCorrect = 8, // 80% de 10
                 englishTarget = 3,
                 readingTarget = 1
             )
