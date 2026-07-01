@@ -22,14 +22,15 @@ enum class Difficulty { EASY, MEDIUM, HARD }
  * Un mismo dispositivo = un solo niño (una tablet por niño).
  */
 /**
- * Cada etapa se aprueba con PRECISIÓN >= 80% (aciertos ÷ intentos) tras un
- * mínimo de preguntas. Fallar penaliza (una sola oportunidad por pregunta),
- * lo que evita adivinar presionando opciones al azar.
+ * Cada etapa se aprueba con PRECISIÓN >= 80% medida sobre una VENTANA MÓVIL de
+ * las últimas N respuestas (no sobre todo el historial). Así el niño puede
+ * remontar respondiendo bien, pero quien adivina al azar nunca llega al 80%.
+ * Una sola oportunidad por pregunta: fallar cuenta dentro de la ventana.
  */
 data class ChallengeConfig(
     val difficulty: Difficulty,
-    val mathTotal: Int,    // mínimo de preguntas de matemáticas
-    val englishTotal: Int  // mínimo de preguntas de inglés
+    val mathWindow: Int,    // ventana de las últimas N respuestas de mate
+    val englishWindow: Int  // ventana de las últimas N respuestas de inglés
 )
 
 data class ChildProfile(
@@ -40,13 +41,13 @@ data class ChildProfile(
         get() = when (grade) {
             GradeLevel.PRIMARIA -> ChallengeConfig(
                 difficulty = Difficulty.EASY,
-                mathTotal = 5,
-                englishTotal = 3
+                mathWindow = 5,   // 4 de las últimas 5 (80%)
+                englishWindow = 5
             )
             GradeLevel.SECUNDARIA -> ChallengeConfig(
                 difficulty = Difficulty.HARD,
-                mathTotal = 10,
-                englishTotal = 5
+                mathWindow = 10,  // 8 de las últimas 10 (80%)
+                englishWindow = 5
             )
         }
 }

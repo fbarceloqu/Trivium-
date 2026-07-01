@@ -23,7 +23,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -98,7 +98,7 @@ fun KioskScreen(
             Stage.MATH -> MultipleChoiceStage(
                 title = "Matemáticas · operaciones y situaciones",
                 accent = MaterialTheme.colorScheme.primary,
-                minQuestions = config.mathTotal,
+                window = config.mathWindow,
                 nextLabel = "Continuar a Inglés",
                 initial = { ChallengeEngine.generateMath(config.difficulty).toQuiz() },
                 loadNext = { prev -> ChallengeEngine.generateMath(config.difficulty, prev).toQuiz() },
@@ -107,7 +107,7 @@ fun KioskScreen(
             Stage.ENGLISH -> MultipleChoiceStage(
                 title = "Inglés · Past Tense",
                 accent = MaterialTheme.colorScheme.secondary,
-                minQuestions = config.englishTotal,
+                window = config.englishWindow,
                 nextLabel = "Continuar a Lectura",
                 initial = { ChallengeEngine.randomEnglish().toQuiz() },
                 loadNext = { prev -> ChallengeEngine.randomEnglish(prev).toQuiz() },
@@ -146,33 +146,38 @@ private fun Chip(label: String, active: Boolean, modifier: Modifier = Modifier) 
 }
 
 /**
- * Etapa de opción múltiple con meta de precisión del 80%.
+ * Etapa de opción múltiple con meta de precisión del 80% sobre una VENTANA
+ * MÓVIL de las últimas [window] respuestas.
  * - Una sola oportunidad por pregunta (evita adivinar presionando al azar).
- * - Cada respuesta cuenta: precisión = aciertos ÷ intentos.
- * - Se aprueba al llegar a 80% tras un mínimo de preguntas.
+ * - Cada respuesta entra en la ventana; las viejas salen. El niño puede remontar.
+ * - Se aprueba cuando la ventana está llena y >= 80% de ella son aciertos.
  */
 @Composable
 private fun MultipleChoiceStage(
     title: String,
     accent: Color,
-    minQuestions: Int,
+    window: Int,
     nextLabel: String,
     initial: () -> Quiz,
     loadNext: (String) -> Quiz,
     onDone: () -> Unit
 ) {
-    var correct by remember { mutableIntStateOf(0) }
-    var attempts by remember { mutableIntStateOf(0) }
+    val history = remember { mutableStateListOf<Boolean>() } // historial de aciertos/fallos
     var quiz by remember { mutableStateOf(initial()) }
     var selected by remember { mutableStateOf<String?>(null) }
     var result by remember { mutableStateOf<Boolean?>(null) }
 
-    val accuracy = if (attempts > 0) correct * 100 / attempts else 0
-    val passed = attempts >= minQuestions && accuracy >= PASS_ACCURACY
+    val recent = history.takeLast(window)
+    val windowHits = recent.count { it }
+    val windowCount = recent.size
+    val requiredCorrect = (window * 8 + 9) / 10 // ceil(window * 0.8)
+    val accuracy = if (windowCount > 0) windowHits * 100 / windowCount else 0
+    val passed = windowCount >= window && windowHits >= requiredCorrect
 
     Text(title, style = MaterialTheme.typography.labelLarge, color = accent)
     Text(
-        "Aciertos: $correct/$attempts · Precisión: $accuracy%  (meta $PASS_ACCURACY%, mínimo $minQuestions)",
+        "Últimas $windowCount/$window · Aciertos en ventana: $windowHits/$window · " +
+            "Precisión: $accuracy% (meta $PASS_ACCURACY%)",
         style = MaterialTheme.typography.bodySmall
     )
     Spacer(Modifier.height(8.dp))
@@ -188,8 +193,7 @@ private fun MultipleChoiceStage(
         selected = opt
         val ok = opt == quiz.answer
         result = ok
-        attempts++
-        if (ok) correct++
+        history.add(ok)
     }
 
     result?.let { ok ->
