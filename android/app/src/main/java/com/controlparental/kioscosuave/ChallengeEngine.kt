@@ -212,8 +212,10 @@ object ChallengeEngine {
         )
     )
 
-    fun randomEnglish(): EnglishExercise =
-        englishBank.random().let { it.copy(options = it.options.shuffled()) }
+    fun randomEnglish(exclude: String? = null): EnglishExercise {
+        val pool = englishBank.filter { it.question != exclude }.ifEmpty { englishBank }
+        return pool.random().let { it.copy(options = it.options.shuffled()) }
+    }
 
     // ---------------- LECTURA ----------------
     private val readingBank = listOf(

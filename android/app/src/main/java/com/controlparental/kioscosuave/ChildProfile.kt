@@ -21,12 +21,15 @@ enum class Difficulty { EASY, MEDIUM, HARD }
  * Mapeo v1: Primaria -> fácil y pocas repeticiones; Secundaria -> difícil.
  * Un mismo dispositivo = un solo niño (una tablet por niño).
  */
+/**
+ * Cada etapa se aprueba con PRECISIÓN >= 80% (aciertos ÷ intentos) tras un
+ * mínimo de preguntas. Fallar penaliza (una sola oportunidad por pregunta),
+ * lo que evita adivinar presionando opciones al azar.
+ */
 data class ChallengeConfig(
     val difficulty: Difficulty,
-    val mathTotal: Int,           // tamaño del bloque de matemáticas
-    val mathRequiredCorrect: Int, // aciertos necesarios para aprobar (≈ 80% del bloque)
-    val englishTarget: Int,
-    val readingTarget: Int
+    val mathTotal: Int,    // mínimo de preguntas de matemáticas
+    val englishTotal: Int  // mínimo de preguntas de inglés
 )
 
 data class ChildProfile(
@@ -38,16 +41,12 @@ data class ChildProfile(
             GradeLevel.PRIMARIA -> ChallengeConfig(
                 difficulty = Difficulty.EASY,
                 mathTotal = 5,
-                mathRequiredCorrect = 4, // 80% de 5
-                englishTarget = 2,
-                readingTarget = 1
+                englishTotal = 3
             )
             GradeLevel.SECUNDARIA -> ChallengeConfig(
                 difficulty = Difficulty.HARD,
                 mathTotal = 10,
-                mathRequiredCorrect = 8, // 80% de 10
-                englishTarget = 3,
-                readingTarget = 1
+                englishTotal = 5
             )
         }
 }

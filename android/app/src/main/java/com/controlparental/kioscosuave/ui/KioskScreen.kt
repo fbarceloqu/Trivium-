@@ -40,7 +40,22 @@ import com.controlparental.kioscosuave.MathQuestion
 import com.controlparental.kioscosuave.ReadingPassage
 import com.controlparental.kioscosuave.SummaryResult
 
+/** Precisión mínima (aciertos ÷ intentos) para aprobar cada etapa. */
+private const val PASS_ACCURACY = 80
+
 private enum class Stage { MATH, ENGLISH, READING }
+
+/** Modelo unificado de pregunta de opción múltiple (mate o inglés). */
+private data class Quiz(
+    val instruction: String?,
+    val question: String,
+    val options: List<String>,
+    val answer: String,
+    val explanation: String
+)
+
+private fun MathQuestion.toQuiz() = Quiz(null, question, options, answer, explanation)
+private fun EnglishExercise.toQuiz() = Quiz(instruction, question, options, correctAnswer, explanation)
 
 @Composable
 fun KioskScreen(
@@ -80,12 +95,24 @@ fun KioskScreen(
         Spacer(Modifier.height(16.dp))
 
         when (stage) {
-            Stage.MATH -> MathStage(
-                difficulty = config.difficulty,
-                total = config.mathTotal,
-                requiredCorrect = config.mathRequiredCorrect
-            ) { stage = Stage.ENGLISH }
-            Stage.ENGLISH -> EnglishStage(config.englishTarget) { stage = Stage.READING }
+            Stage.MATH -> MultipleChoiceStage(
+                title = "Matemáticas · operaciones y situaciones",
+                accent = MaterialTheme.colorScheme.primary,
+                minQuestions = config.mathTotal,
+                nextLabel = "Continuar a Inglés",
+                initial = { ChallengeEngine.generateMath(config.difficulty).toQuiz() },
+                loadNext = { prev -> ChallengeEngine.generateMath(config.difficulty, prev).toQuiz() },
+                onDone = { stage = Stage.ENGLISH }
+            )
+            Stage.ENGLISH -> MultipleChoiceStage(
+                title = "Inglés · Past Tense",
+                accent = MaterialTheme.colorScheme.secondary,
+                minQuestions = config.englishTotal,
+                nextLabel = "Continuar a Lectura",
+                initial = { ChallengeEngine.randomEnglish().toQuiz() },
+                loadNext = { prev -> ChallengeEngine.randomEnglish(prev).toQuiz() },
+                onDone = { stage = Stage.READING }
+            )
             Stage.READING -> ReadingStage(onApproved = onAllComplete)
         }
     }
@@ -118,40 +145,48 @@ private fun Chip(label: String, active: Boolean, modifier: Modifier = Modifier) 
     }
 }
 
+/**
+ * Etapa de opción múltiple con meta de precisión del 80%.
+ * - Una sola oportunidad por pregunta (evita adivinar presionando al azar).
+ * - Cada respuesta cuenta: precisión = aciertos ÷ intentos.
+ * - Se aprueba al llegar a 80% tras un mínimo de preguntas.
+ */
 @Composable
-private fun MathStage(
-    difficulty: com.controlparental.kioscosuave.Difficulty,
-    total: Int,
-    requiredCorrect: Int,
+private fun MultipleChoiceStage(
+    title: String,
+    accent: Color,
+    minQuestions: Int,
+    nextLabel: String,
+    initial: () -> Quiz,
+    loadNext: (String) -> Quiz,
     onDone: () -> Unit
 ) {
     var correct by remember { mutableIntStateOf(0) }
     var attempts by remember { mutableIntStateOf(0) }
-    var question by remember { mutableStateOf(ChallengeEngine.generateMath(difficulty)) }
+    var quiz by remember { mutableStateOf(initial()) }
     var selected by remember { mutableStateOf<String?>(null) }
-    var result by remember { mutableStateOf<Boolean?>(null) } // null = sin responder aún
+    var result by remember { mutableStateOf<Boolean?>(null) }
 
-    val done = correct >= requiredCorrect
-    val accuracy = if (attempts > 0) (correct * 100 / attempts) else 0
+    val accuracy = if (attempts > 0) correct * 100 / attempts else 0
+    val passed = attempts >= minQuestions && accuracy >= PASS_ACCURACY
 
+    Text(title, style = MaterialTheme.typography.labelLarge, color = accent)
     Text(
-        "Matemáticas · necesitas $requiredCorrect de $total (80%)",
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary
-    )
-    Text(
-        "Aciertos: $correct/$requiredCorrect · Intentos: $attempts · Precisión: $accuracy%",
+        "Aciertos: $correct/$attempts · Precisión: $accuracy%  (meta $PASS_ACCURACY%, mínimo $minQuestions)",
         style = MaterialTheme.typography.bodySmall
     )
     Spacer(Modifier.height(8.dp))
-    QuestionCard(question.question)
+    quiz.instruction?.let {
+        Text(it, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(8.dp))
+    }
+    QuestionCard(quiz.question)
     Spacer(Modifier.height(12.dp))
 
-    // Cada respuesta (correcta o no) bloquea el ejercicio; NO se reintenta el mismo.
-    OptionsGrid(options = question.options, selected = selected, correctFlag = result) { opt ->
-        if (result != null) return@OptionsGrid
+    OptionsGrid(quiz.options, selected, result) { opt ->
+        if (result != null) return@OptionsGrid // ya respondió: no se reintenta
         selected = opt
-        val ok = opt == question.answer
+        val ok = opt == quiz.answer
         result = ok
         attempts++
         if (ok) correct++
@@ -161,69 +196,22 @@ private fun MathStage(
         Spacer(Modifier.height(12.dp))
         FeedbackBox(
             ok,
-            if (ok) "¡Correcto! ${question.explanation}"
-            else "La respuesta correcta era ${question.answer}. ${question.explanation}"
+            if (ok) "¡Correcto! ${quiz.explanation}"
+            else "La respuesta correcta era ${quiz.answer}. ${quiz.explanation}"
         )
         Spacer(Modifier.height(8.dp))
         Button(
             onClick = {
-                if (correct >= requiredCorrect) {
+                if (passed) {
                     onDone()
                 } else {
-                    // Siempre un ejercicio DIFERENTE al recién resuelto.
-                    question = ChallengeEngine.generateMath(difficulty, exclude = question.question)
+                    quiz = loadNext(quiz.question) // siempre una pregunta diferente
                     selected = null
                     result = null
                 }
             },
             modifier = Modifier.fillMaxWidth()
-        ) { Text(if (done) "Continuar a Inglés" else "Siguiente ejercicio") }
-    }
-}
-
-@Composable
-private fun EnglishStage(target: Int, onDone: () -> Unit) {
-    var count by remember { mutableIntStateOf(0) }
-    var exercise by remember { mutableStateOf<EnglishExercise>(ChallengeEngine.randomEnglish()) }
-    var selected by remember { mutableStateOf<String?>(null) }
-    var correct by remember { mutableStateOf<Boolean?>(null) }
-
-    Text(
-        "Inglés · Past Tense (${count + 1} de $target)",
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.secondary
-    )
-    Spacer(Modifier.height(8.dp))
-    Text(exercise.instruction, style = MaterialTheme.typography.bodyMedium)
-    Spacer(Modifier.height(8.dp))
-    QuestionCard(exercise.question)
-    Spacer(Modifier.height(12.dp))
-
-    OptionsGrid(exercise.options, selected, correct) { opt ->
-        if (correct == true) return@OptionsGrid
-        selected = opt
-        correct = opt == exercise.correctAnswer
-        if (correct == true) count++
-    }
-
-    correct?.let { ok ->
-        Spacer(Modifier.height(12.dp))
-        FeedbackBox(ok, exercise.explanation)
-        if (ok) {
-            Spacer(Modifier.height(8.dp))
-            Button(
-                onClick = {
-                    if (count >= target) {
-                        onDone()
-                    } else {
-                        exercise = ChallengeEngine.randomEnglish()
-                        selected = null
-                        correct = null
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) { Text(if (count >= target) "Continuar a Lectura" else "Siguiente") }
-        }
+        ) { Text(if (passed) nextLabel else "Siguiente pregunta") }
     }
 }
 
@@ -233,8 +221,10 @@ private fun ReadingStage(onApproved: () -> Unit) {
     var summary by remember { mutableStateOf("") }
     var result by remember { mutableStateOf<SummaryResult?>(null) }
 
+    val passed = (result?.score ?: 0) >= PASS_ACCURACY
+
     Text(
-        "Comprensión lectora",
+        "Comprensión lectora · meta $PASS_ACCURACY/100",
         style = MaterialTheme.typography.labelLarge,
         color = Color(0xFFF59E0B)
     )
@@ -251,7 +241,7 @@ private fun ReadingStage(onApproved: () -> Unit) {
     val words = summary.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.size
     OutlinedTextField(
         value = summary,
-        onValueChange = { if (result?.approved != true) summary = it },
+        onValueChange = { if (!passed) summary = it },
         label = { Text("Escribe tu resumen ($words palabras)") },
         modifier = Modifier.fillMaxWidth().height(140.dp),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
@@ -259,11 +249,11 @@ private fun ReadingStage(onApproved: () -> Unit) {
 
     result?.let { r ->
         Spacer(Modifier.height(12.dp))
-        FeedbackBox(r.approved, "${r.feedback}\n\n💡 ${r.suggestions}  ·  Nota: ${r.score}/100")
+        FeedbackBox(passed, "${r.feedback}\n\n💡 ${r.suggestions}  ·  Puntaje: ${r.score}/100")
     }
 
     Spacer(Modifier.height(12.dp))
-    if (result?.approved == true) {
+    if (passed) {
         Button(onClick = onApproved, modifier = Modifier.fillMaxWidth()) {
             Text("¡Desbloquear tablet!")
         }
