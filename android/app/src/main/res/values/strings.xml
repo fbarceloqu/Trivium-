@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kiosco Suave</string>
+    <string name="parent_setup_title">Configuración Parental</string>
+    <string name="device_admin_label">Kiosco Suave Admin</string>
+    <string name="device_admin_description">Permite bloquear la pantalla de la tablet de forma remota (Lock Now).</string>
+    <string name="accessibility_description">El Watchdog vigila que el menor no salga del kiosco de desafíos hasta completar sus tareas del día.</string>
+</resources>
