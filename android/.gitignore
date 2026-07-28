@@ -10,3 +10,5 @@
 build/
 app/build/
 /gradle/wrapper/gradle-wrapper.jar
+# Config de Firebase: no subir al repo público (cada quien usa la suya)
+app/google-services.json
