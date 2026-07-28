@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -41,6 +42,7 @@ import com.controlparental.kioscosuave.ChildProfile
 import com.controlparental.kioscosuave.EnglishExercise
 import com.controlparental.kioscosuave.GradeLevel
 import com.controlparental.kioscosuave.MathQuestion
+import com.controlparental.kioscosuave.ProgressSync
 import com.controlparental.kioscosuave.ReadingPassage
 import com.controlparental.kioscosuave.SummaryResult
 
@@ -123,6 +125,7 @@ fun KioskScreen(
                 accent = MaterialTheme.colorScheme.primary,
                 window = config.mathWindow,
                 nextLabel = "Continuar a Inglés",
+                stageKey = "math",
                 initial = { ChallengeEngine.generateMath(config.difficulty).toQuiz() },
                 loadNext = { prev -> ChallengeEngine.generateMath(config.difficulty, prev).toQuiz() },
                 onDone = { stage = Stage.ENGLISH }
@@ -132,6 +135,7 @@ fun KioskScreen(
                 accent = MaterialTheme.colorScheme.secondary,
                 window = config.englishWindow,
                 nextLabel = "Continuar a Lectura",
+                stageKey = "english",
                 initial = { ChallengeEngine.randomEnglish().toQuiz() },
                 loadNext = { prev -> ChallengeEngine.randomEnglish(prev).toQuiz() },
                 onDone = { stage = Stage.READING }
@@ -184,10 +188,12 @@ private fun MultipleChoiceStage(
     accent: Color,
     window: Int,
     nextLabel: String,
+    stageKey: String,
     initial: () -> Quiz,
     loadNext: (String) -> Quiz,
     onDone: () -> Unit
 ) {
+    val ctx = LocalContext.current
     val history = remember { mutableStateListOf<Boolean>() } // historial de aciertos/fallos
     var quiz by remember { mutableStateOf(initial()) }
     var selected by remember { mutableStateOf<String?>(null) }
@@ -253,6 +259,8 @@ private fun MultipleChoiceStage(
         Button(
             onClick = {
                 if (passed) {
+                    // Sube el desempeño de la etapa completa (aciertos/intentos totales).
+                    ProgressSync.reportStage(ctx, stageKey, history.count { it }, history.size)
                     onDone()
                 } else {
                     quiz = loadNext(quiz.question) // siempre una pregunta diferente
@@ -267,9 +275,11 @@ private fun MultipleChoiceStage(
 
 @Composable
 private fun ReadingStage(advanced: Boolean, onApproved: () -> Unit) {
+    val ctx = LocalContext.current
     val passage by remember { mutableStateOf<ReadingPassage>(ChallengeEngine.randomReading(advanced)) }
     var summary by remember { mutableStateOf("") }
     var result by remember { mutableStateOf<SummaryResult?>(null) }
+    var submitCount by remember { mutableStateOf(0) }
 
     val passed = (result?.score ?: 0) >= PASS_ACCURACY
 
@@ -309,7 +319,13 @@ private fun ReadingStage(advanced: Boolean, onApproved: () -> Unit) {
         }
     } else {
         Button(
-            onClick = { result = ChallengeEngine.evaluateSummary(passage.text, summary) },
+            onClick = {
+                submitCount++
+                val r = ChallengeEngine.evaluateSummary(passage.text, summary)
+                result = r
+                // Sube el resultado de lectura (score y nº de envíos).
+                ProgressSync.reportReading(ctx, r.score, submitCount)
+            },
             enabled = summary.trim().length >= 15,
             modifier = Modifier.fillMaxWidth()
         ) { Text("Enviar resumen") }

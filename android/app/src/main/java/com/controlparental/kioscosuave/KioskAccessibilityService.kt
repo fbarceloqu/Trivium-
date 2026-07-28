@@ -67,11 +67,13 @@ class KioskAccessibilityService : AccessibilityService() {
         // Bloquear Ajustes explícitamente si está configurado (evita apagar el kiosco).
         if (ProfileStore.blockSettings(ctx) && packageName == SETTINGS_PACKAGE) {
             Log.w(TAG, "Intento de abrir Ajustes bloqueado.")
+            ProgressSync.reportEvasion(ctx, packageName)
             bounceToLauncher(ctx)
             return
         }
 
         Log.w(TAG, "Desafíos incompletos. Rebotando desde $packageName al kiosco.")
+        ProgressSync.reportEvasion(ctx, packageName)
         bounceToLauncher(ctx)
     }
 

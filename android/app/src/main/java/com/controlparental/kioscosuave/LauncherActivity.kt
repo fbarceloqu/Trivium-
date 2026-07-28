@@ -60,6 +60,8 @@ class LauncherActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshTick.intValue++
+        // Marca actividad y sincroniza el perfil en la nube (best-effort, offline-safe).
+        ProgressSync.registerChild(this)
     }
 
     @Composable
@@ -75,6 +77,7 @@ class LauncherActivity : ComponentActivity() {
                     profile = ProfileStore.getProfile(this),
                     onAllComplete = {
                         SessionStateMachine.setUnlocked(this)
+                        ProgressSync.reportUnlocked(this)
                         locked = false
                     },
                     onParentAccess = { openParentSetup() }
