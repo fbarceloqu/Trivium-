@@ -12,7 +12,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -21,6 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -36,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import com.controlparental.kioscosuave.ChallengeEngine
 import com.controlparental.kioscosuave.ChildProfile
 import com.controlparental.kioscosuave.EnglishExercise
+import com.controlparental.kioscosuave.GradeLevel
 import com.controlparental.kioscosuave.MathQuestion
 import com.controlparental.kioscosuave.ReadingPassage
 import com.controlparental.kioscosuave.SummaryResult
@@ -45,17 +49,36 @@ private const val PASS_ACCURACY = 80
 
 private enum class Stage { MATH, ENGLISH, READING }
 
+/** Contenido del botón de ayuda 💡 (ejemplo resuelto o guía). */
+private data class Help(val title: String, val lines: List<String>)
+
 /** Modelo unificado de pregunta de opción múltiple (mate o inglés). */
 private data class Quiz(
     val instruction: String?,
     val question: String,
     val options: List<String>,
     val answer: String,
-    val explanation: String
+    val afterLines: List<String>, // se muestran tras responder (procedimiento / regla)
+    val help: Help?               // contenido del botón de ayuda
 )
 
-private fun MathQuestion.toQuiz() = Quiz(null, question, options, answer, explanation)
-private fun EnglishExercise.toQuiz() = Quiz(instruction, question, options, correctAnswer, explanation)
+private fun MathQuestion.toQuiz() = Quiz(
+    instruction = null,
+    question = question,
+    options = options,
+    answer = answer,
+    afterLines = steps,
+    help = Help(example.title, example.lines)
+)
+
+private fun EnglishExercise.toQuiz() = Quiz(
+    instruction = instruction,
+    question = question,
+    options = options,
+    answer = correctAnswer,
+    afterLines = listOf(explanation, "🔊 Pronunciación: $phonetic"),
+    help = Help(ChallengeEngine.englishHelp.title, ChallengeEngine.englishHelp.lines)
+)
 
 @Composable
 fun KioskScreen(
@@ -113,7 +136,10 @@ fun KioskScreen(
                 loadNext = { prev -> ChallengeEngine.randomEnglish(prev).toQuiz() },
                 onDone = { stage = Stage.READING }
             )
-            Stage.READING -> ReadingStage(onApproved = onAllComplete)
+            Stage.READING -> ReadingStage(
+                advanced = profile.grade == GradeLevel.SECUNDARIA,
+                onApproved = onAllComplete
+            )
         }
     }
 }
@@ -166,6 +192,7 @@ private fun MultipleChoiceStage(
     var quiz by remember { mutableStateOf(initial()) }
     var selected by remember { mutableStateOf<String?>(null) }
     var result by remember { mutableStateOf<Boolean?>(null) }
+    var showHelp by remember { mutableStateOf(false) }
 
     val recent = history.takeLast(window)
     val windowHits = recent.count { it }
@@ -174,7 +201,29 @@ private fun MultipleChoiceStage(
     val accuracy = if (windowCount > 0) windowHits * 100 / windowCount else 0
     val passed = windowCount >= window && windowHits >= requiredCorrect
 
-    Text(title, style = MaterialTheme.typography.labelLarge, color = accent)
+    // Diálogo de ayuda con ejemplo resuelto / guía.
+    if (showHelp && quiz.help != null) {
+        val help = quiz.help!!
+        AlertDialog(
+            onDismissRequest = { showHelp = false },
+            confirmButton = { TextButton(onClick = { showHelp = false }) { Text("Entendido") } },
+            title = { Text(help.title) },
+            text = { Text(help.lines.joinToString("\n"), style = MaterialTheme.typography.bodyMedium) }
+        )
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, style = MaterialTheme.typography.labelLarge, color = accent)
+        if (quiz.help != null) {
+            IconButton(onClick = { showHelp = true }) {
+                Icon(Icons.Filled.Lightbulb, contentDescription = "Ver ejemplo de ayuda", tint = accent)
+            }
+        }
+    }
     Text(
         "Últimas $windowCount/$window · Aciertos en ventana: $windowHits/$window · " +
             "Precisión: $accuracy% (meta $PASS_ACCURACY%)",
@@ -198,11 +247,8 @@ private fun MultipleChoiceStage(
 
     result?.let { ok ->
         Spacer(Modifier.height(12.dp))
-        FeedbackBox(
-            ok,
-            if (ok) "¡Correcto! ${quiz.explanation}"
-            else "La respuesta correcta era ${quiz.answer}. ${quiz.explanation}"
-        )
+        val header = if (ok) "¡Correcto!" else "La respuesta correcta era ${quiz.answer}."
+        FeedbackBox(ok, (listOf(header) + quiz.afterLines).joinToString("\n"))
         Spacer(Modifier.height(8.dp))
         Button(
             onClick = {
@@ -220,8 +266,8 @@ private fun MultipleChoiceStage(
 }
 
 @Composable
-private fun ReadingStage(onApproved: () -> Unit) {
-    val passage by remember { mutableStateOf<ReadingPassage>(ChallengeEngine.randomReading()) }
+private fun ReadingStage(advanced: Boolean, onApproved: () -> Unit) {
+    val passage by remember { mutableStateOf<ReadingPassage>(ChallengeEngine.randomReading(advanced)) }
     var summary by remember { mutableStateOf("") }
     var result by remember { mutableStateOf<SummaryResult?>(null) }
 
