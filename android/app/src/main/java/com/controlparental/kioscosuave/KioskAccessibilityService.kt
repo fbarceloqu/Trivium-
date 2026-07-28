@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
+import android.view.inputmethod.InputMethodManager
 
 /**
  * Watchdog (modo suave). Mientras el día esté bloqueado, si el niño abre otra
@@ -26,12 +27,24 @@ class KioskAccessibilityService : AccessibilityService() {
             "com.android.dialer"
         )
         private const val SETTINGS_PACKAGE = "com.android.settings"
+
+        // Ventanas del sistema que NO deben provocar rebote: la barra/panel del
+        // sistema y los teclados (si rebotáramos al abrir el teclado, el niño no
+        // podría escribir su resumen dentro del propio kiosco).
+        private val SYSTEM_UI_PACKAGES = setOf(
+            "com.android.systemui"
+        )
     }
+
+    /** Paquetes de los teclados (IME) instalados; se calculan al conectar. */
+    private var imePackages: Set<String> = emptySet()
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         isServiceConnected = true
-        Log.d(TAG, "Watchdog de accesibilidad conectado")
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imePackages = imm.inputMethodList.map { it.packageName }.toSet()
+        Log.d(TAG, "Watchdog conectado. Teclados excluidos: $imePackages")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
@@ -41,6 +54,9 @@ class KioskAccessibilityService : AccessibilityService() {
 
         if (!SessionStateMachine.isLocked(ctx)) return
         if (packageName == ctx.packageName) return
+
+        // Ignorar ventanas del sistema y teclados: no son "salidas" del kiosco.
+        if (packageName in SYSTEM_UI_PACKAGES || packageName in imePackages) return
 
         // Permitir llamadas de emergencia si el padre lo habilitó.
         if (ProfileStore.emergencyCalls(ctx) && packageName in EMERGENCY_PACKAGES) {
@@ -60,6 +76,15 @@ class KioskAccessibilityService : AccessibilityService() {
     }
 
     private fun bounceToLauncher(context: Context) {
+        // MECANISMO PRINCIPAL: ir a HOME. Como Kiosco Suave ES el launcher
+        // predeterminado, esto nos trae de vuelta y está SIEMPRE permitido para
+        // un servicio de accesibilidad. (startActivity desde background es
+        // bloqueado silenciosamente por Android 10+ — no lanza excepción, solo
+        // no hace nada, por eso no puede ser el mecanismo principal.)
+        performGlobalAction(GLOBAL_ACTION_HOME)
+
+        // Refuerzo best-effort: si el sistema lo permite, traer la Activity al
+        // frente explícitamente (en algunos OEM el HOME tarda un ciclo).
         try {
             val intent = Intent(context, LauncherActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -69,9 +94,7 @@ class KioskAccessibilityService : AccessibilityService() {
             }
             context.startActivity(intent)
         } catch (e: Exception) {
-            Log.e(TAG, "Error al reabrir el kiosco: ${e.message}")
-            // Respaldo: como somos el HOME, forzar ir a inicio nos trae de vuelta.
-            performGlobalAction(GLOBAL_ACTION_HOME)
+            Log.w(TAG, "startActivity de refuerzo falló (esperado en background): ${e.message}")
         }
     }
 
