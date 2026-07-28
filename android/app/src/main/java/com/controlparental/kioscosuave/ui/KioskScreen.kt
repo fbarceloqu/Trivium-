@@ -73,13 +73,23 @@ private fun MathQuestion.toQuiz() = Quiz(
     help = Help(example.title, example.lines)
 )
 
-private fun EnglishExercise.toQuiz() = Quiz(
+private fun EnglishExercise.toQuiz(starter: Boolean = false) = Quiz(
     instruction = instruction,
     question = question,
     options = options,
     answer = correctAnswer,
     afterLines = listOf(explanation, "🔊 Pronunciación: $phonetic"),
-    help = Help(ChallengeEngine.englishHelp.title, ChallengeEngine.englishHelp.lines)
+    help = if (starter) Help(ChallengeEngine.starterEnglishHelp.title, ChallengeEngine.starterEnglishHelp.lines)
+    else Help(ChallengeEngine.englishHelp.title, ChallengeEngine.englishHelp.lines)
+)
+
+private fun ChallengeEngine.ReadingQuiz.toQuiz() = Quiz(
+    instruction = "Lee despacio:  «$sentence»",
+    question = question,
+    options = options,
+    answer = answer,
+    afterLines = listOf("La oración dice: «$sentence»"),
+    help = Help(ChallengeEngine.readingQuizHelp.title, ChallengeEngine.readingQuizHelp.lines)
 )
 
 @Composable
@@ -130,20 +140,38 @@ fun KioskScreen(
                 loadNext = { prev -> ChallengeEngine.generateMath(config.difficulty, prev).toQuiz() },
                 onDone = { stage = Stage.ENGLISH }
             )
-            Stage.ENGLISH -> MultipleChoiceStage(
-                title = "Inglés · Past Tense",
-                accent = MaterialTheme.colorScheme.secondary,
-                window = config.englishWindow,
-                nextLabel = "Continuar a Lectura",
-                stageKey = "english",
-                initial = { ChallengeEngine.randomEnglish().toQuiz() },
-                loadNext = { prev -> ChallengeEngine.randomEnglish(prev).toQuiz() },
-                onDone = { stage = Stage.READING }
-            )
-            Stage.READING -> ReadingStage(
-                advanced = profile.grade == GradeLevel.SECUNDARIA,
-                onApproved = onAllComplete
-            )
+            Stage.ENGLISH -> {
+                val starter = profile.grade == GradeLevel.PREESCOLAR
+                MultipleChoiceStage(
+                    title = if (starter) "Inglés · palabras con dibujos" else "Inglés · Past Tense",
+                    accent = MaterialTheme.colorScheme.secondary,
+                    window = config.englishWindow,
+                    nextLabel = "Continuar a Lectura",
+                    stageKey = "english",
+                    initial = { ChallengeEngine.randomEnglish(starter = starter).toQuiz(starter) },
+                    loadNext = { prev ->
+                        ChallengeEngine.randomEnglish(starter = starter, exclude = prev).toQuiz(starter)
+                    },
+                    onDone = { stage = Stage.READING }
+                )
+            }
+            Stage.READING -> when (profile.grade) {
+                // Preescolar/1º: leer una oración corta y responder (sin escribir).
+                GradeLevel.PREESCOLAR -> MultipleChoiceStage(
+                    title = "Lectura · lee y responde",
+                    accent = Color(0xFFF59E0B),
+                    window = 5,
+                    nextLabel = "¡Desbloquear tablet!",
+                    stageKey = "reading",
+                    initial = { ChallengeEngine.randomReadingQuiz().toQuiz() },
+                    loadNext = { prev -> ChallengeEngine.randomReadingQuiz(exclude = prev).toQuiz() },
+                    onDone = onAllComplete
+                )
+                else -> ReadingStage(
+                    advanced = profile.grade == GradeLevel.SECUNDARIA,
+                    onApproved = onAllComplete
+                )
+            }
         }
     }
 }

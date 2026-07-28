@@ -108,6 +108,8 @@ object ChallengeEngine {
     // ---------------- MATEMÁTICAS ----------------
     fun generateMath(difficulty: Difficulty, exclude: String? = null): MathQuestion {
         val generators: List<() -> MathQuestion> = when (difficulty) {
+            Difficulty.STARTER ->
+                listOf(::countObjects, ::countObjects, ::addObjects, ::biggerNumber)
             Difficulty.EASY ->
                 listOf(::opAddition, ::opSubtraction, ::wordAddition, ::wordSubtraction)
             Difficulty.MEDIUM ->
@@ -122,6 +124,52 @@ object ChallengeEngine {
             tries++
         }
         return q
+    }
+
+    // --- Preescolar / 1º: contar objetos con dibujos ---
+    private val countEmojis = listOf("🍎", "⭐", "🐶", "🎈", "🚗", "🌸", "⚽", "🐟")
+
+    private val EX_COUNT = WorkedExample(
+        "Ejemplo: contar",
+        listOf(
+            "¿Cuántas hay?  🍎 🍎 🍎",
+            "Cuenta una por una con el dedo:",
+            "1... 2... 3",
+            "¡Son 3!"
+        )
+    )
+
+    private fun countObjects(): MathQuestion {
+        val n = Random.nextInt(2, 10)
+        val e = countEmojis.random()
+        val row = List(n) { e }.joinToString(" ")
+        return MathQuestion(
+            "¿Cuántos hay?\n\n$row",
+            distinctOptions(n, listOf(n + 1, n - 1, n + 2)), n.toString(),
+            listOf("Cuenta uno por uno con el dedo:", row, "¡Son $n!"), EX_COUNT)
+    }
+
+    private fun addObjects(): MathQuestion {
+        val a = Random.nextInt(1, 5); val b = Random.nextInt(1, 5); val ans = a + b
+        val e = countEmojis.random()
+        val rowA = List(a) { e }.joinToString(" ")
+        val rowB = List(b) { e }.joinToString(" ")
+        return MathQuestion(
+            "$rowA  y  $rowB\n\n¿Cuántos hay en total?",
+            distinctOptions(ans, listOf(ans + 1, ans - 1, ans + 2)), ans.toString(),
+            listOf("Junta los dos grupos y cuenta todos:", "$rowA  $rowB", "¡Son $ans!"), EX_COUNT)
+    }
+
+    private fun biggerNumber(): MathQuestion {
+        val nums = (1..9).shuffled().take(4)
+        val ans = nums.max()
+        return MathQuestion(
+            "¿Cuál número es el MÁS GRANDE?",
+            nums.map { it.toString() }.shuffled(), ans.toString(),
+            listOf("De estos números, el más grande es $ans."),
+            WorkedExample("Ejemplo: el más grande",
+                listOf("Entre 2, 5 y 3...", "el más grande es 5,", "porque 5 tiene más que 2 y que 3."))
+        )
     }
 
     // --- Operaciones directas ---
@@ -302,7 +350,68 @@ object ChallengeEngine {
         )
     )
 
-    fun randomEnglish(exclude: String? = null): EnglishExercise {
+    // Vocabulario con dibujos para Preescolar/1º: (emoji, palabra, fonética, español)
+    private data class VocabItem(val emoji: String, val word: String, val phon: String, val es: String)
+    private val starterVocab = listOf(
+        VocabItem("🐶", "dog", "/dɒg/ («dog»)", "perro"),
+        VocabItem("🐱", "cat", "/kæt/ («cat»)", "gato"),
+        VocabItem("🍎", "apple", "/ˈæpəl/ («ápol»)", "manzana"),
+        VocabItem("☀️", "sun", "/sʌn/ («san»)", "sol"),
+        VocabItem("🏠", "house", "/haʊs/ («jaus»)", "casa"),
+        VocabItem("🐟", "fish", "/fɪʃ/ («fish»)", "pez"),
+        VocabItem("🐦", "bird", "/bɜːrd/ («berd»)", "pájaro"),
+        VocabItem("🥛", "milk", "/mɪlk/ («milk»)", "leche"),
+        VocabItem("⚽", "ball", "/bɔːl/ («bol»)", "pelota"),
+        VocabItem("🌙", "moon", "/muːn/ («mun»)", "luna"),
+        VocabItem("💧", "water", "/ˈwɔːtər/ («uóter»)", "agua"),
+        VocabItem("📖", "book", "/bʊk/ («buk»)", "libro")
+    )
+
+    /** Guía de ayuda de inglés para los más pequeños. */
+    val starterEnglishHelp = WorkedExample(
+        "Palabras en inglés",
+        listOf(
+            "Mira el dibujo y di su nombre en inglés:",
+            "🐶 dog («dog»)   🐱 cat («cat»)",
+            "🍎 apple («ápol»)   ☀️ sun («san»)",
+            "Repite la palabra en voz alta 3 veces. ¡Así se aprende!"
+        )
+    )
+
+    /** Ejercicio de vocabulario con dibujo: emoji→palabra o palabra→emoji. */
+    private fun starterEnglish(): EnglishExercise {
+        val item = starterVocab.random()
+        val others = starterVocab.filter { it != item }.shuffled().take(3)
+        return if (Random.nextBoolean()) {
+            EnglishExercise(
+                "Mira el dibujo. ¿Cómo se dice en inglés?",
+                item.emoji,
+                (others.map { it.word } + item.word).shuffled(),
+                item.word,
+                "${item.emoji} es '${item.word}' en inglés (${item.es}). Dilo en voz alta: ${item.word}!",
+                "${item.word} = ${item.phon}"
+            )
+        } else {
+            EnglishExercise(
+                "¿Cuál dibujo es '${item.word}'?",
+                item.word,
+                (others.map { it.emoji } + item.emoji).shuffled(),
+                item.emoji,
+                "'${item.word}' significa ${item.es}: ${item.emoji}. Repite: ${item.word}!",
+                "${item.word} = ${item.phon}"
+            )
+        }
+    }
+
+    fun randomEnglish(starter: Boolean = false, exclude: String? = null): EnglishExercise {
+        if (starter) {
+            var ex = starterEnglish()
+            var tries = 0
+            while (exclude != null && ex.question == exclude && tries < 6) {
+                ex = starterEnglish(); tries++
+            }
+            return ex
+        }
         val pool = englishBank.filter { it.question != exclude }.ifEmpty { englishBank }
         return pool.random().let { it.copy(options = it.options.shuffled()) }
     }
@@ -341,6 +450,49 @@ object ChallengeEngine {
 
     fun randomReading(advanced: Boolean = false): ReadingPassage =
         if (advanced) readingAdvancedBank.random() else readingBank.random()
+
+    // --- Mini-lecturas para Preescolar/1º: una oración + pregunta de opción ---
+    data class ReadingQuiz(
+        val sentence: String,
+        val question: String,
+        val options: List<String>,
+        val answer: String
+    )
+
+    private val readingQuizBank = listOf(
+        ReadingQuiz("El gato bebe leche.", "¿Qué bebe el gato?",
+            listOf("leche", "agua", "jugo", "pan"), "leche"),
+        ReadingQuiz("El sol es amarillo.", "¿De qué color es el sol?",
+            listOf("amarillo", "azul", "verde", "rojo"), "amarillo"),
+        ReadingQuiz("Ana tiene un globo rojo.", "¿Qué tiene Ana?",
+            listOf("un globo", "un perro", "una pelota", "un pan"), "un globo"),
+        ReadingQuiz("El perro corre en el parque.", "¿Dónde corre el perro?",
+            listOf("en el parque", "en la casa", "en la escuela", "en el mar"), "en el parque"),
+        ReadingQuiz("Mamá compra pan.", "¿Qué compra mamá?",
+            listOf("pan", "leche", "fruta", "queso"), "pan"),
+        ReadingQuiz("El pez nada en el agua.", "¿Dónde nada el pez?",
+            listOf("en el agua", "en la arena", "en el cielo", "en la mesa"), "en el agua"),
+        ReadingQuiz("Luis juega con la pelota.", "¿Con qué juega Luis?",
+            listOf("la pelota", "el carro", "la muñeca", "el libro"), "la pelota"),
+        ReadingQuiz("La luna sale de noche.", "¿Cuándo sale la luna?",
+            listOf("de noche", "de día", "en la tarde", "en verano"), "de noche")
+    )
+
+    val readingQuizHelp = WorkedExample(
+        "Cómo leer la oración",
+        listOf(
+            "1) Lee despacio, palabra por palabra.",
+            "2) Puedes leerla en voz alta.",
+            "Ejemplo: «El gato bebe leche.»",
+            "Pregunta: ¿Qué bebe el gato? → leche 🥛"
+        )
+    )
+
+    fun randomReadingQuiz(exclude: String? = null): ReadingQuiz {
+        // exclude llega como la PREGUNTA del quiz anterior (Quiz.question en la UI).
+        val pool = readingQuizBank.filter { it.question != exclude }.ifEmpty { readingQuizBank }
+        return pool.random().let { it.copy(options = it.options.shuffled()) }
+    }
 
     // ---------------- EVALUACIÓN DE RESUMEN (heurística local) ----------------
     fun evaluateSummary(readingText: String, userSummary: String): SummaryResult {

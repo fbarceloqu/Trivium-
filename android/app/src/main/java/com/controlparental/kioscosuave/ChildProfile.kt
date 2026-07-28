@@ -5,6 +5,7 @@ package com.controlparental.kioscosuave
  * de los retos (decisión: "dificultad automática por nivel escolar").
  */
 enum class GradeLevel(val label: String) {
+    PREESCOLAR("Preescolar / 1º"),
     PRIMARIA("Primaria"),
     SECUNDARIA("Secundaria");
 
@@ -14,7 +15,8 @@ enum class GradeLevel(val label: String) {
     }
 }
 
-enum class Difficulty { EASY, MEDIUM, HARD }
+/** STARTER = recién sale de preescolar: contar objetos, vocabulario con dibujos. */
+enum class Difficulty { STARTER, EASY, MEDIUM, HARD }
 
 /**
  * Configuración de retos derivada del nivel escolar.
@@ -39,6 +41,11 @@ data class ChildProfile(
 ) {
     val config: ChallengeConfig
         get() = when (grade) {
+            GradeLevel.PREESCOLAR -> ChallengeConfig(
+                difficulty = Difficulty.STARTER,
+                mathWindow = 5,   // 4 de las últimas 5 (80%)
+                englishWindow = 5
+            )
             GradeLevel.PRIMARIA -> ChallengeConfig(
                 difficulty = Difficulty.EASY,
                 mathWindow = 5,   // 4 de las últimas 5 (80%)
