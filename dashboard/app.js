@@ -17,9 +17,12 @@ const hide = (id) => $(id).classList.add("hidden");
 let firebaseConfig;
 try {
   ({ firebaseConfig } = await import("./firebase-config.js"));
-} catch {
+} catch (err) {
+  // No ocultar la causa real: ayuda muchísimo a diagnosticar (404 del
+  // servidor vs. error de sintaxis en el archivo vs. archivo vacío, etc.)
+  console.error("No se pudo cargar dashboard/firebase-config.js:", err);
   show("config-missing");
-  throw new Error("dashboard/firebase-config.js no encontrado");
+  throw err;
 }
 
 const app = initializeApp(firebaseConfig);
