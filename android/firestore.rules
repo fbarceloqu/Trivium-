@@ -1,9 +1,13 @@
 rules_version = '2';
 // Reglas de Trivium (Fase B):
 // - Las TABLETS entran con sesión anónima y escriben el progreso/respaldo.
-// - El PADRE entra con correo/contraseña (Email/Password) desde el Panel web
-//   y puede leerlo todo.
+// - El PADRE entra con Google (Google Sign-In) desde el Panel web, y SOLO si
+//   su correo está en la lista blanca de abajo, puede leerlo todo.
 // Nadie sin autenticar puede leer ni escribir.
+//
+// IMPORTANTE: mantén esta lista sincronizada con ALLOWED_PARENT_EMAILS en
+// dashboard/app.js. Esta es la defensa real (las reglas del cliente se pueden
+// saltar); la del cliente solo evita mostrar la UI a quien no debe.
 //
 // Limitación conocida (aceptable a escala familiar): cualquier sesión anónima
 // del proyecto cuenta como "tablet". En una fase posterior se puede ligar cada
@@ -13,7 +17,11 @@ service cloud.firestore {
 
     function isParent() {
       return request.auth != null
-        && request.auth.token.firebase.sign_in_provider == 'password';
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.email in [
+          'fco.quintanar@gmail.com',
+          'anaid.torresu@gmail.com'
+        ];
     }
     function isTablet() {
       return request.auth != null

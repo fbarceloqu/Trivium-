@@ -3,7 +3,7 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut,
+  getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, collection, getDocs, doc, getDoc, query, orderBy, limit,
@@ -29,6 +29,13 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// Solo estas cuentas de Google pueden ver el panel. Edita esta lista para
+// agregar/quitar padres autorizados (además, refuerza esto en firestore.rules).
+const ALLOWED_PARENT_EMAILS = [
+  "fco.quintanar@gmail.com",
+  "anaid.torresu@gmail.com",
+];
+
 const GRADE_LABELS = {
   PREESCOLAR: "Preescolar / 1º",
   PRIMARIA: "Primaria",
@@ -48,22 +55,28 @@ const fmtDateTime = (ts) =>
 
 // --- Sesión ---
 onAuthStateChanged(auth, (user) => {
-  if (user && !user.isAnonymous) {
+  if (user && !user.isAnonymous && ALLOWED_PARENT_EMAILS.includes(user.email)) {
     hide("login-view"); show("logout-btn"); showChildren();
-  } else {
-    hide("children-view"); hide("detail-view"); hide("logout-btn"); show("login-view");
+    return;
   }
+  if (user && !user.isAnonymous) {
+    // Cuenta de Google válida pero NO autorizada: fuera.
+    $("login-error").textContent =
+      `La cuenta ${user.email} no está autorizada para ver este panel.`;
+    signOut(auth);
+    return;
+  }
+  hide("children-view"); hide("detail-view"); hide("logout-btn"); show("login-view");
 });
 
-$("login-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
+$("google-login-btn").addEventListener("click", async () => {
   $("login-error").textContent = "";
   try {
-    await signInWithEmailAndPassword(auth, $("email").value.trim(), $("password").value);
+    await signInWithPopup(auth, new GoogleAuthProvider());
   } catch (err) {
-    $("login-error").textContent =
-      "No se pudo iniciar sesión. Revisa el correo/contraseña (y que el proveedor 'Correo electrónico' esté habilitado en Firebase Authentication).";
     console.error(err);
+    $("login-error").textContent =
+      "No se pudo iniciar sesión con Google (¿el proveedor 'Google' está habilitado en Firebase Authentication?).";
   }
 });
 
