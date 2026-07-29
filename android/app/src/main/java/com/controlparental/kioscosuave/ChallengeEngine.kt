@@ -109,7 +109,10 @@ object ChallengeEngine {
     fun generateMath(difficulty: Difficulty, exclude: String? = null): MathQuestion {
         val generators: List<() -> MathQuestion> = when (difficulty) {
             Difficulty.STARTER ->
-                listOf(::countObjects, ::countObjects, ::addObjects, ::biggerNumber)
+                listOf(
+                    ::countObjects, ::addObjects, ::subObjects, ::whichSumShown,
+                    ::moreOrLess, ::numberSequence, ::patternNext, ::biggerNumber
+                )
             Difficulty.EASY ->
                 listOf(::opAddition, ::opSubtraction, ::wordAddition, ::wordSubtraction)
             Difficulty.MEDIUM ->
@@ -158,6 +161,134 @@ object ChallengeEngine {
             "$rowA  y  $rowB\n\n¿Cuántos hay en total?",
             distinctOptions(ans, listOf(ans + 1, ans - 1, ans + 2)), ans.toString(),
             listOf("Junta los dos grupos y cuenta todos:", "$rowA  $rowB", "¡Son $ans!"), EX_COUNT)
+    }
+
+    private val EX_RESTA = WorkedExample(
+        "Ejemplo: restar contando hacia atrás",
+        listOf(
+            "Resta:  4 − 1 = ?",
+            "Puedes contar hacia atrás para restar.",
+            "Empieza desde el 4 y cuenta 1 hacia atrás:",
+            "4... 3",
+            "¡La respuesta es 3!"
+        )
+    )
+
+    /** Resta visual: había N, se van B, ¿cuántos quedan? (contar hacia atrás). */
+    private fun subObjects(): MathQuestion {
+        val a = Random.nextInt(3, 10); val b = Random.nextInt(1, minOf(a, 4))
+        val ans = a - b
+        val e = countEmojis.random()
+        val row = List(a) { e }.joinToString(" ")
+        val backwards = (a downTo ans).joinToString("... ")
+        return MathQuestion(
+            "Hay $a. Se van $b.\n\n$row\n\n¿Cuántos quedan?",
+            distinctOptions(ans, listOf(ans + 1, ans - 1, ans + 2)), ans.toString(),
+            listOf(
+                "Cuenta hacia atrás desde $a, $b ${if (b == 1) "vez" else "veces"}:",
+                backwards,
+                "¡Quedan $ans!"
+            ), EX_RESTA)
+    }
+
+    private val EX_QUE_SUMA = WorkedExample(
+        "Ejemplo: ¿qué suma muestra el dibujo?",
+        listOf(
+            "🔵 🔵    🟠",
+            "Cuenta los azules: 2. Cuenta los naranjas: 1.",
+            "2 + 1 = 3",
+            "La suma correcta es «2 + 1 = 3»."
+        )
+    )
+
+    /** Como IXL: muestra dos grupos y las opciones son ecuaciones completas. */
+    private fun whichSumShown(): MathQuestion {
+        val a = Random.nextInt(2, 6); val b = Random.nextInt(1, 5)
+        val rowA = List(a) { "🔵" }.joinToString(" ")
+        val rowB = List(b) { "🟠" }.joinToString(" ")
+        val correct = "$a + $b = ${a + b}"
+        val opts = LinkedHashSet<String>()
+        opts.add(correct)
+        opts.add("$a + ${b + 1} = ${a + b + 1}")
+        opts.add("${a + 1} + $b = ${a + b + 1}")
+        opts.add("$a + $b = ${a + b + 1}")
+        return MathQuestion(
+            "¿Qué suma muestra este dibujo?\n\n$rowA   $rowB",
+            opts.toList().shuffled(), correct,
+            listOf(
+                "Cuenta los azules: $a. Cuenta los naranjas: $b.",
+                "$a + $b = ${a + b}"
+            ), EX_QUE_SUMA)
+    }
+
+    private val EX_COMPARA = WorkedExample(
+        "Ejemplo: ¿hay más?",
+        listOf(
+            "¿Hay más 🍎 que 🍌?",
+            "🍎 🍎 🍎",
+            "🍌 🍌",
+            "Cuenta cada fila: 3 manzanas y 2 plátanos.",
+            "3 es más que 2 → la respuesta es «sí»."
+        )
+    )
+
+    /** Comparación sí/no: ¿hay más/menos X que Y? (dos filas de dibujos). */
+    private fun moreOrLess(): MathQuestion {
+        val e1 = countEmojis.random()
+        var e2 = countEmojis.random()
+        while (e2 == e1) e2 = countEmojis.random()
+        val n1 = Random.nextInt(1, 6); var n2 = Random.nextInt(1, 6)
+        while (n2 == n1) n2 = Random.nextInt(1, 6)
+        val askMore = Random.nextBoolean()
+        val word = if (askMore) "más" else "menos"
+        val answerYes = if (askMore) n1 > n2 else n1 < n2
+        val row1 = List(n1) { e1 }.joinToString(" ")
+        val row2 = List(n2) { e2 }.joinToString(" ")
+        return MathQuestion(
+            "¿Hay $word $e1 que $e2?\n\n$row1\n$row2",
+            listOf("sí", "no"), if (answerYes) "sí" else "no",
+            listOf(
+                "Cuenta cada fila: $n1 $e1 y $n2 $e2.",
+                "$n1 ${if (n1 > n2) "es más que" else "es menos que"} $n2 → «${if (answerYes) "sí" else "no"}»."
+            ), EX_COMPARA)
+    }
+
+    /** Secuencia numérica con hueco: 3, 4, _, 6. */
+    private fun numberSequence(): MathQuestion {
+        val start = Random.nextInt(1, 7)
+        val blankAt = Random.nextInt(1, 3) // posición 1 o 2 de 4
+        val nums = (start until start + 4).toList()
+        val shown = nums.mapIndexed { i, n -> if (i == blankAt) "_" else n.toString() }
+        val ans = nums[blankAt]
+        return MathQuestion(
+            "¿Qué número falta?\n\n${shown.joinToString(",  ")}",
+            distinctOptions(ans, listOf(ans + 1, ans - 1, ans + 2)), ans.toString(),
+            listOf(
+                "Cuenta en orden: ${nums.joinToString(", ")}.",
+                "El número que falta es $ans."
+            ),
+            WorkedExample("Ejemplo: el número que falta",
+                listOf("1, 2, _, 4", "Cuenta: 1, 2, 3, 4...", "¡Falta el 3!"))
+        )
+    }
+
+    /** Patrón AB: 🔴 🔵 🔴 🔵 🔴 _ ¿qué sigue? */
+    private fun patternNext(): MathQuestion {
+        val pool = listOf("🔴", "🔵", "🟡", "🟢", "⭐", "🌸", "⚽", "🍎").shuffled()
+        val a = pool[0]; val b = pool[1]
+        val seq = listOf(a, b, a, b, a)
+        val ans = b
+        val options = (listOf(a, b) + pool.drop(2).take(2)).shuffled()
+        return MathQuestion(
+            "¿Qué sigue en el patrón?\n\n${seq.joinToString("  ")}  _",
+            options, ans,
+            listOf(
+                "El patrón se repite: $a $b $a $b...",
+                "Después de $a sigue $b."
+            ),
+            WorkedExample("Ejemplo: patrones",
+                listOf("🔴 🔵 🔴 🔵 🔴 _", "Se repite rojo, azul, rojo, azul...", "Después del 🔴 sigue el 🔵."))
+        )
     }
 
     private fun biggerNumber(): MathQuestion {
@@ -475,7 +606,49 @@ object ChallengeEngine {
         ReadingQuiz("Luis juega con la pelota.", "¿Con qué juega Luis?",
             listOf("la pelota", "el carro", "la muñeca", "el libro"), "la pelota"),
         ReadingQuiz("La luna sale de noche.", "¿Cuándo sale la luna?",
-            listOf("de noche", "de día", "en la tarde", "en verano"), "de noche")
+            listOf("de noche", "de día", "en la tarde", "en verano"), "de noche"),
+
+        // --- Completar la vocal que falta (conciencia fonológica) ---
+        ReadingQuiz("🐢  T_RTUGA", "¿Qué vocal falta?",
+            listOf("O", "A", "E", "U"), "O"),
+        ReadingQuiz("🐰  CON_JO", "¿Qué vocal falta?",
+            listOf("E", "A", "O", "I"), "E"),
+        ReadingQuiz("🐔  G_LLINA", "¿Qué vocal falta?",
+            listOf("A", "E", "O", "U"), "A"),
+        ReadingQuiz("🐱  GAT_", "¿Qué vocal falta?",
+            listOf("O", "A", "E", "I"), "O"),
+        ReadingQuiz("🍎  MANZAN_", "¿Qué vocal falta?",
+            listOf("A", "O", "E", "U"), "A"),
+
+        // --- Completar la sílaba que falta ---
+        ReadingQuiz("🍎  man_na", "¿Qué sílaba falta?",
+            listOf("za", "ta", "pa", "sa"), "za"),
+        ReadingQuiz("🥄  cu_ra", "¿Qué sílaba falta?",
+            listOf("cha", "ta", "ra", "ma"), "cha"),
+        ReadingQuiz("☂️  pa_guas", "¿Qué sílaba falta?",
+            listOf("ra", "va", "za", "ta"), "ra"),
+        ReadingQuiz("🍌  plá_no", "¿Qué sílaba falta?",
+            listOf("ta", "sa", "ma", "pa"), "ta"),
+        ReadingQuiz("👻  fantas_", "¿Qué sílaba falta?",
+            listOf("ma", "za", "ra", "cha"), "ma"),
+        ReadingQuiz("👟  za_tillas", "¿Qué sílaba falta?",
+            listOf("pa", "va", "ta", "sa"), "pa"),
+        ReadingQuiz("🦋  maripo_", "¿Qué sílaba falta?",
+            listOf("sa", "za", "ma", "ra"), "sa"),
+
+        // --- Mini-lecturas con varias preguntas (el texto se repite por pregunta) ---
+        ReadingQuiz("La jirafa tiene un cuello muy largo. Es amarilla con manchas de color café.",
+            "¿Cómo tiene el cuello la jirafa?",
+            listOf("largo", "corto", "gordo", "azul"), "largo"),
+        ReadingQuiz("La jirafa tiene un cuello muy largo. Es amarilla con manchas de color café.",
+            "¿De qué color son sus manchas?",
+            listOf("café", "amarillas", "rojas", "verdes"), "café"),
+        ReadingQuiz("El elefante es muy grande. Tiene una trompa larga y orejas grandes. Le gusta bañarse en el río.",
+            "¿Qué tiene largo el elefante?",
+            listOf("la trompa", "la cola", "las patas", "el pelo"), "la trompa"),
+        ReadingQuiz("El elefante es muy grande. Tiene una trompa larga y orejas grandes. Le gusta bañarse en el río.",
+            "¿Dónde le gusta bañarse?",
+            listOf("en el río", "en el mar", "en la casa", "en la escuela"), "en el río")
     )
 
     val readingQuizHelp = WorkedExample(

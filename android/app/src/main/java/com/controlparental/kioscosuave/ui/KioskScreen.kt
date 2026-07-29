@@ -83,14 +83,20 @@ private fun EnglishExercise.toQuiz(starter: Boolean = false) = Quiz(
     else Help(ChallengeEngine.englishHelp.title, ChallengeEngine.englishHelp.lines)
 )
 
-private fun ChallengeEngine.ReadingQuiz.toQuiz() = Quiz(
-    instruction = "Lee despacio:  «$sentence»",
-    question = question,
-    options = options,
-    answer = answer,
-    afterLines = listOf("La oración dice: «$sentence»"),
-    help = Help(ChallengeEngine.readingQuizHelp.title, ChallengeEngine.readingQuizHelp.lines)
-)
+private fun ChallengeEngine.ReadingQuiz.toQuiz(): Quiz {
+    val isCompletion = sentence.contains('_')
+    return Quiz(
+        instruction = if (isCompletion) "Mira el dibujo y completa la palabra:  $sentence"
+        else "Lee despacio:  «$sentence»",
+        question = question,
+        options = options,
+        answer = answer,
+        afterLines = if (isCompletion)
+            listOf("La palabra completa es: ${sentence.replaceFirst("_", answer)}")
+        else listOf("La oración dice: «$sentence»"),
+        help = Help(ChallengeEngine.readingQuizHelp.title, ChallengeEngine.readingQuizHelp.lines)
+    )
+}
 
 @Composable
 fun KioskScreen(
