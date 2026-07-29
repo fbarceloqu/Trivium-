@@ -49,8 +49,11 @@ android {
 }
 
 dependencies {
-    // Firebase (el BoM fija las versiones de todos los módulos firebase-*)
-    implementation(platform("com.google.firebase:firebase-bom:34.1.0"))
+    // Firebase (el BoM fija las versiones de todos los módulos firebase-*).
+    // OJO: BoM 34+ requiere Kotlin 2.x; el proyecto usa Kotlin 1.9.24, por eso
+    // se fija la serie 33.x (última compatible). Si algún día se sube Kotlin a
+    // 2.x (con el plugin compose de Kotlin), se puede subir el BoM a 34+.
+    implementation(platform("com.google.firebase:firebase-bom:33.16.0"))
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-auth")
 
