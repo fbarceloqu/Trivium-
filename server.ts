@@ -1,3 +1,4 @@
+import "dotenv/config"; // carga GEMINI_API_KEY desde el archivo .env local
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
