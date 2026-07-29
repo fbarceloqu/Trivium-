@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.gms.google-services")
 }
 
@@ -37,10 +38,8 @@ android {
     buildFeatures {
         compose = true
     }
-    composeOptions {
-        // Compatible con Kotlin 1.9.24
-        kotlinCompilerExtensionVersion = "1.5.14"
-    }
+    // Nota: con Kotlin 2.x ya no se usa composeOptions/kotlinCompilerExtensionVersion;
+    // el plugin org.jetbrains.kotlin.plugin.compose fija el compilador de Compose.
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
