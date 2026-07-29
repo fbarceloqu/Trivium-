@@ -6,7 +6,7 @@ import {
   getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, collection, getDocs, doc, getDoc, query, orderBy, limit,
+  getFirestore, collection, getDocs, doc, getDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const $ = (id) => document.getElementById(id);
@@ -133,19 +133,19 @@ async function showDetail(childId, c) {
   const body = $("days-body");
   body.innerHTML = "<tr><td colspan='6' class='muted'>Cargando…</td></tr>";
 
-  const q = query(
-    collection(db, "children", childId, "days"),
-    orderBy("__name__", "desc"),
-    limit(14)
-  );
-  const snap = await getDocs(q);
+  // Sin orderBy/limit en la consulta (evita depender de un índice compuesto
+  // de Firestore); con ~365 días/año como mucho, ordenar en el navegador es
+  // instantáneo. Los IDs de documento son "yyyy-MM-dd", ordenan bien como texto.
+  const snap = await getDocs(collection(db, "children", childId, "days"));
   body.innerHTML = "";
   if (snap.empty) {
     body.innerHTML = "<tr><td colspan='6' class='muted'>Sin registros todavía.</td></tr>";
     return;
   }
 
-  for (const day of snap.docs) {
+  const days = [...snap.docs].sort((a, b) => (a.id < b.id ? 1 : -1)).slice(0, 14);
+
+  for (const day of days) {
     const d = day.data();
     const stat = (s) => (s ? `${s.correct ?? 0}/${s.attempts ?? 0}` : "—");
     const reading = d.reading ? `${d.reading.score ?? d.reading.correct ?? 0}` : "—";
