@@ -18,51 +18,99 @@ real para este proyecto.
 
 ---
 
-## 1. Inglés · vocabulario con dibujos (Preescolar/1º) — AMPLIADO
+## 1. Inglés · vocabulario (Preescolar/1º) — ✅ YA IMPLEMENTADO
 
-Banco destino: `starterVocab` (`VocabItem(emoji, word, phon, es)`). El campo
-`emoji` ahora es de "mejor esfuerzo": si una palabra no tiene un buen emoji
-único, se deja vacío para poder emparejarla con una imagen real más adelante
-(no bloquea la generación del vocabulario en sí).
+`starterVocab` en `ChallengeEngine.kt` ya tiene **199 palabras** en 17
+categorías (animales, comida, colores, formas, familia, cuerpo, ropa, casa,
+escuela, transporte, naturaleza, emociones, números, profesiones, música,
+deportes/juguetes, electrónica) — generadas directamente aquí, sin necesitar
+prompt externo. El campo `emoji` es de "mejor esfuerzo": las pocas palabras
+sin un buen emoji único (square, hair, head, table) quedan con `emoji: ""`,
+listas para emparejarse con una imagen real (ver prompt 2) sin bloquear el
+resto. Este mismo vocabulario ahora también alimenta los ejercicios de
+**contar** en matemáticas (antes solo 8 objetos fijos).
+
+## 2. Imágenes para el vocabulario (Preescolar) — NUEVO, requiere herramienta externa
+
+Este es el único paso que **no puedo generar yo directamente** (no tengo
+generador de imágenes fotorrealistas en este entorno, y la generación de
+imágenes de Gemini no tiene cuota gratis — requiere facturación). Usa este
+prompt en ChatGPT/DALL-E, Gemini (con facturación activada), o cualquier
+generador de imágenes que tengas a mano.
+
+**Nota de alcance:** de las 199 palabras del vocabulario, se excluyen aquí
+**colores** (10), **formas** (6) y **números** (10) — no tiene sentido pedirle
+a una IA "una ilustración de un solo *rojo*" o "del número *siete*"; esos ya
+se resuelven bien con emoji de color/vectores simples. Quedan **173
+sustantivos reales** que sí vale la pena ilustrar.
+
+Genera las imágenes **una por una** (o en tandas pequeñas), sustituyendo
+`{object}` por cada palabra de la lista de abajo:
 
 ```
-Eres maestro de inglés para niños hispanohablantes de 6 años (recién salidos
-de preescolar). Genera 150 palabras de vocabulario básico en inglés,
-repartidas en estas categorías (con esta cantidad aproximada cada una):
-
-- animales (30): mascotas, granja, selva, mar
-- comida (25): frutas, verduras, comidas cotidianas, bebidas
-- colores (10)
-- formas (8): círculo, cuadrado, triángulo, estrella, corazón...
-- familia (10): mamá, papá, hermano, abuela...
-- cuerpo (12): más allá de cara (mano, pie, brazo, pierna, cabello...)
-- ropa (10)
-- casa y muebles (10)
-- escuela (10): mochila, lápiz, libro, tijeras...
-- transporte (10)
-- naturaleza y clima (10)
-- emociones (8): feliz, triste, enojado, cansado... (hay emoji de caritas)
-- números en palabra, uno a diez (10)
-
-Reglas:
-- Palabras de 1 o 2 sílabas en inglés, muy comunes, concretas (nada
-  abstracto), apropiadas para un niño de 6 años.
-- NO repitas estas 18 ya existentes: dog, cat, apple, sun, house, fish, bird,
-  milk, ball, moon, water, book, face, eye, nose, mouth, ear, hand.
-- "phon" = pronunciación IPA + entre «» una transcripción figurada al español
-  (como la leería un niño mexicano), p. ej. "/dɒg/ («dog»)".
-- "emoji": SOLO si existe un emoji Unicode estándar claro y reconocible para
-  la palabra; si no hay uno bueno, deja "emoji": "" (cadena vacía). No
-  inventes combinaciones de varios emojis.
-- "category": una de las categorías de la lista de arriba, en español y en
-  minúsculas (p. ej. "animales").
-
-Devuelve SOLO un arreglo JSON, sin comentarios ni texto adicional:
-[{"emoji": "🐘", "word": "elephant", "phon": "/ˈɛlɪfənt/ («élefant»)",
-  "es": "elefante", "category": "animales"}, ...]
+A centered, high-quality 3D vector-style illustration of a single {object},
+colorful, realistic proportions, soft shadows, clean edges, isolated on a
+transparent background, no text, no watermark, children's educational
+flashcard style, 512x512.
 ```
 
-## 2. Inglés · Past Tense básico (Primaria/Secundaria)
+**Instrucciones de guardado:**
+- Formato: PNG o WEBP, fondo transparente, 512×512 px.
+- Nombre de archivo: la palabra en inglés, minúsculas, espacios como guion
+  bajo (p. ej. `ice_cream.webp`, `police_officer.webp`).
+- Guárdalas todas en una sola carpeta; cuando tengas un lote (aunque sea
+  parcial), pásamelas y yo las integro a `res/drawable-nodpi/` en el proyecto
+  Android y actualizo el código para usarlas en vez del emoji.
+
+**Lista completa (173 palabras) — genera en el orden que prefieras:**
+
+```
+Animales: elephant, giraffe, lion, tiger, bear, monkey, cow, pig, sheep,
+horse, duck, frog, bee, butterfly, snake, turtle, rabbit, mouse, owl,
+penguin, chicken, wolf, fox, koala, panda, kangaroo, crocodile, shark, whale,
+dolphin, octopus, crab, snail, ant, dinosaur, squirrel, camel, dog, cat,
+fish, bird
+
+Comida: banana, orange, strawberry, grape, watermelon, pineapple, mango,
+lemon, carrot, potato, tomato, corn, broccoli, onion, bread, cheese, egg,
+pizza, cake, cookie, ice cream, rice, taco, hamburger, hot dog, juice,
+coffee, chocolate, candy, apple, milk, water
+
+Familia: mom, dad, brother, sister, baby, grandma, grandpa, family
+
+Cuerpo: foot, leg, tooth, arm, hair, head, face, eye, nose, mouth, ear, hand
+
+Ropa: shirt, pants, dress, shoes, cap, socks, jacket, glasses, scarf, gloves
+
+Casa y muebles: bed, chair, door, window, key, lamp, sofa, bathtub,
+toothbrush, soap, mirror, table, house, book
+
+Escuela: pencil, scissors, crayon, ruler, backpack, notebook
+
+Transporte: car, bus, train, airplane, boat, bike, motorcycle, truck,
+helicopter, rocket
+
+Naturaleza y clima: tree, flower, leaf, mountain, rainbow, rain, snow, cloud,
+fire, sea, sun, moon
+
+Emociones (representa la carita/expresión): happy, sad, angry, surprised,
+scared, sleepy
+
+Profesiones (persona con su atuendo/herramienta característica): doctor,
+teacher, firefighter, police officer, chef, farmer, astronaut
+
+Música: guitar, drum, piano, microphone, trumpet
+
+Deportes y juguetes: basketball, tennis, kite, blocks, balloon, ball
+
+Electrónica: television, phone, computer, camera
+```
+
+Recuerda: no necesitas generarlas todas de una vez. Con 20-30 que envíes ya
+puedo integrarlas y verás la diferencia; el resto lo vamos completando poco a
+poco.
+
+## 3. Inglés · Past Tense básico (Primaria/Secundaria)
 
 Banco destino: `englishBank` — nivel básico, ya cubierto (no hace falta
 regenerar salvo que quieras más variedad). Se deja aquí como referencia del
@@ -89,12 +137,15 @@ Devuelve SOLO un arreglo JSON:
   "correctAnswer": "...", "explanation": "...", "phonetic": "..."}, ...]
 ```
 
-## 3. Inglés · gramática avanzada (Secundaria) — NUEVO
+## 4. Inglés · gramática avanzada (Secundaria) — ✅ YA IMPLEMENTADO
 
-Banco destino: nuevo (p. ej. `englishAdvancedUnits`), **misma forma exacta**
-que el punto 2 (`EnglishExercise`). Pensado para que Secundaria tenga temas
-más complejos que Primaria, no solo Past Tense repetido. Genera esto en 9
-tandas (una por tema) para no saturar una sola respuesta del modelo.
+`englishAdvancedUnits` en `ChallengeEngine.kt` ya tiene **135 ejercicios** en
+9 unidades (comparativos/superlativos, modales, primer condicional, verbos
+frasales, voz pasiva, preguntas Wh-, reported speech, conectores, vocabulario
+intermedio) — generadas directamente aquí. Secundaria rota entre las 8
+unidades básicas + estas 9 avanzadas (17 en total); Primaria se queda solo
+con las básicas. El prompt de abajo queda como referencia por si algún día
+quieres pedir una tanda EXTRA con otro modelo, siguiendo el mismo formato.
 
 ```
 Eres tutor de inglés para adolescentes mexicanos de secundaria (12-14 años),
@@ -132,7 +183,7 @@ comentarios ni texto adicional:
 Con las 9 tandas de 20 se obtienen ~180 ejercicios nuevos — suficiente para
 que Secundaria no vea el mismo ejercicio dos veces en semanas.
 
-## 4. Lectura · mini-lecturas con pregunta (Preescolar/1º)
+## 5. Lectura · mini-lecturas con pregunta (Preescolar/1º)
 
 Banco destino: `readingQuizBank` (`ReadingQuiz(sentence, question, options, answer)`).
 
@@ -153,7 +204,7 @@ Devuelve SOLO un arreglo JSON:
   "options": ["leche","agua","jugo","pan"], "answer": "leche"}, ...]
 ```
 
-## 5. Lectura · completar vocal o sílaba (Preescolar/1º)
+## 6. Lectura · completar vocal o sílaba (Preescolar/1º)
 
 Mismo banco `readingQuizBank` (la UI detecta el `_` y cambia la consigna).
 
@@ -171,10 +222,10 @@ Reglas:
 - Palabras de 2 a 4 sílabas, cotidianas, representables con emoji estándar.
 - Verifica que al sustituir el "_" por "answer" la palabra quede bien escrita.
 
-Devuelve SOLO un arreglo JSON con la misma forma del punto 4.
+Devuelve SOLO un arreglo JSON con la misma forma del punto 5.
 ```
 
-## 6. Lecturas largas (Primaria y Secundaria)
+## 7. Lecturas largas (Primaria y Secundaria)
 
 Banco destino: `readingBank` (cortas) y `readingAdvancedBank` (amplias),
 `ReadingPassage(title, text)`. También sirve para `/api/ai/reading-passage`
@@ -195,7 +246,7 @@ Devuelve SOLO un arreglo JSON:
 [{"level": "primaria", "title": "...", "text": "..."}, ...]
 ```
 
-## 7. Mate · situaciones/problemas (para ampliar plantillas)
+## 8. Mate · situaciones/problemas (para ampliar plantillas)
 
 La mate se genera por código con números aleatorios (no banco). Este prompt
 sirve para idear NUEVAS PLANTILLAS de problemas que luego se programan en
@@ -217,7 +268,7 @@ Formato por plantilla:
 Devuelve SOLO un arreglo JSON.
 ```
 
-## 8. Alineado al plan SEP · 2º de Secundaria (México)
+## 9. Alineado al plan SEP · 2º de Secundaria (México)
 
 Referencia oficial: https://conocetuslibros.sep.gob.mx/sec2 (colección Sk'asolil,
 Nueva Escuela Mexicana). Libros completos en https://libros.conaliteg.gob.mx.
@@ -250,11 +301,11 @@ Devuelve SOLO un arreglo JSON:
 ```
 
 Para lecturas del campo "Lenguajes" o "Ética, naturaleza y sociedades",
-usar el prompt 6 pidiendo: "temas alineados a 2º de secundaria SEP:
+usar el prompt 7 pidiendo: "temas alineados a 2º de secundaria SEP:
 diversidad cultural de México, ecosistemas mexicanos, historia de México,
 derechos humanos".
 
-## 9. Evaluador de resúmenes (ya en producción)
+## 10. Evaluador de resúmenes (ya en producción)
 
 El prompt endurecido (anti-inyección, con rúbrica) ya está implementado en
 `server.ts` (backend web) y en `GeminiClient.kt` (APK, Fase D). Úsalo como
