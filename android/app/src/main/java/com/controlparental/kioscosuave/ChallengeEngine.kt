@@ -46,6 +46,25 @@ object ChallengeEngine {
     private val things = listOf("manzanas", "canicas", "lápices", "galletas", "stickers", "monedas")
 
     // ---------- Ejemplos resueltos para el botón de ayuda ----------
+    // Ejemplos para OPERACIONES DIRECTAS (mismo formato "¿Cuánto es A+B?").
+    private val EX_ADD_DIRECT = WorkedExample(
+        "Ejemplo resuelto: suma",
+        listOf("¿Cuánto es 7 + 5?", "Sumamos:  7 + 5 = 12", "Respuesta: 12")
+    )
+    private val EX_SUB_DIRECT = WorkedExample(
+        "Ejemplo resuelto: resta",
+        listOf("¿Cuánto es 15 − 6?", "Restamos:  15 − 6 = 9", "Respuesta: 9")
+    )
+    private val EX_MUL_DIRECT = WorkedExample(
+        "Ejemplo resuelto: multiplicación",
+        listOf("¿Cuánto es 6 × 4?", "Multiplicamos:  6 × 4 = 24", "Respuesta: 24")
+    )
+    private val EX_DIV_DIRECT = WorkedExample(
+        "Ejemplo resuelto: división",
+        listOf("¿Cuánto es 24 ÷ 6?", "Dividimos:  24 ÷ 6 = 4", "Respuesta: 4")
+    )
+
+    // Ejemplos para PROBLEMAS DE CONTEXTO (mismo formato de historia/situación).
     private val EX_ADD = WorkedExample(
         "Ejemplo resuelto: suma",
         listOf("María tenía 7 y consiguió 5 más.", "Sumamos:  7 + 5 = 12", "Respuesta: 12")
@@ -62,6 +81,7 @@ object ChallengeEngine {
         "Ejemplo resuelto: división",
         listOf("Repartir 24 dulces entre 6 niños.", "Dividimos:  24 ÷ 6 = 4", "A cada uno le tocan 4")
     )
+    // Ejemplo para ECUACIÓN DIRECTA ("Resuelve para X: ...").
     private val EX_LINEAR = WorkedExample(
         "Ejemplo resuelto: despejar X",
         listOf(
@@ -71,6 +91,20 @@ object ChallengeEngine {
             "2) El 4 está multiplicando → pasa dividiendo:",
             "     X = 36 ÷ 4",
             "Respuesta:  X = 9"
+        )
+    )
+    // Ejemplo para "PIENSO UN NÚMERO..." (mismo formato que wordLinear).
+    private val EX_WORD_NUMBER = WorkedExample(
+        "Ejemplo resuelto: pienso un número",
+        listOf(
+            "Pienso un número, lo multiplico por 3 y le sumo 4;",
+            "obtengo 19. ¿Qué número pensé?",
+            "Sea n el número:  3·n + 4 = 19",
+            "1) El 4 está sumando → pasa restando:",
+            "     3·n = 19 − 4 = 15",
+            "2) El 3 está multiplicando → pasa dividiendo:",
+            "     n = 15 ÷ 3",
+            "Respuesta:  n = 5"
         )
     )
     private val EX_PURCHASE = WorkedExample(
@@ -310,28 +344,28 @@ object ChallengeEngine {
         val a = Random.nextInt(3, 15); val b = Random.nextInt(2, 11); val ans = a + b
         return MathQuestion("¿Cuánto es $a + $b?",
             distinctOptions(ans, listOf(ans + 2, ans - 3, ans + 5)), ans.toString(),
-            listOf("Sumamos las cantidades:", "$a + $b = $ans"), EX_ADD)
+            listOf("Sumamos las cantidades:", "$a + $b = $ans"), EX_ADD_DIRECT)
     }
 
     private fun opSubtraction(): MathQuestion {
         val a = Random.nextInt(8, 20); val b = Random.nextInt(2, a); val ans = a - b
         return MathQuestion("¿Cuánto es $a − $b?",
             distinctOptions(ans, listOf(ans + 2, ans + 1, ans + 4)), ans.toString(),
-            listOf("Restamos:", "$a − $b = $ans"), EX_SUB)
+            listOf("Restamos:", "$a − $b = $ans"), EX_SUB_DIRECT)
     }
 
     private fun opMultiplication(): MathQuestion {
         val a = Random.nextInt(4, 12); val b = Random.nextInt(3, 10); val ans = a * b
         return MathQuestion("¿Cuánto es $a × $b?",
             distinctOptions(ans, listOf(ans + 4, ans - 6, ans + 10)), ans.toString(),
-            listOf("Multiplicamos:", "$a × $b = $ans"), EX_MUL)
+            listOf("Multiplicamos:", "$a × $b = $ans"), EX_MUL_DIRECT)
     }
 
     private fun opDivision(): MathQuestion {
         val b = Random.nextInt(2, 10); val ans = Random.nextInt(2, 10); val a = b * ans
         return MathQuestion("¿Cuánto es $a ÷ $b?",
             distinctOptions(ans, listOf(ans + 1, ans + 2, ans - 1)), ans.toString(),
-            listOf("Dividimos:", "$a ÷ $b = $ans"), EX_DIV)
+            listOf("Dividimos:", "$a ÷ $b = $ans"), EX_DIV_DIRECT)
     }
 
     private fun opLinear(): MathQuestion {
@@ -399,7 +433,7 @@ object ChallengeEngine {
                 "2) El $m está multiplicando → pasa dividiendo:",
                 "     n = ${result - b} ÷ $m",
                 "n = $x"
-            ), EX_LINEAR)
+            ), EX_WORD_NUMBER)
     }
 
     private fun wordPurchase(): MathQuestion {
