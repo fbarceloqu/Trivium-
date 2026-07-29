@@ -92,16 +92,18 @@ object ChallengeEngine {
         )
     )
 
-    /** Guía de ayuda para inglés (past tense). */
+    /** Guía de ayuda de inglés (mini-gramática general por tiempos). */
     val englishHelp = WorkedExample(
-        "Cómo formar el pasado (Past Simple)",
+        "Mini-guía de inglés",
         listOf(
-            "Regulares: verbo + -ed → watch → watched, play → played.",
-            "Irregulares: cambian de forma → go → went, eat → ate,",
-            "     run → ran, see → saw.",
-            "Ejemplo: 'Yesterday I ___ (go) home' → went.",
-            "En preguntas/negativos se usa 'did' + verbo base:",
-            "     'Did you go?', 'I didn't go'."
+            "PASADO: verbo + -ed (watched) o irregular (go→went, eat→ate).",
+            "     'Yesterday I went home.'",
+            "FUTURO: will + verbo, o 'be going to'.",
+            "     'Tomorrow I will play.' / 'I am going to study.'",
+            "PRESENTE: con he/she/it el verbo lleva -s.",
+            "     'She goes to school.' / '¿Do you like...?'",
+            "PISTAS: yesterday=pasado, tomorrow/next=futuro,",
+            "     every day=presente."
         )
     )
 
@@ -439,47 +441,337 @@ object ChallengeEngine {
         return set.toList().shuffled().map { it.toString() }
     }
 
-    // ---------------- INGLÉS (Past Tense) ----------------
-    private val englishBank = listOf(
-        EnglishExercise(
-            "Elige la forma correcta del verbo 'run' en pasado.",
-            "Yesterday, Liam ______ to school because he was late.",
-            listOf("runned", "ran", "runs", "running"), "ran",
-            "El pasado de 'run' (correr) es irregular: 'ran'.",
-            "ran = /ræn/  (se pronuncia «ran»)"
-        ),
-        EnglishExercise(
-            "Elige la forma correcta en pasado del verbo 'go'.",
-            "Last weekend, we ______ to the beach with our dog.",
-            listOf("goed", "goes", "went", "going"), "went",
-            "El pasado de 'go' (ir) es irregular: 'went'.",
-            "went = /wɛnt/  (se pronuncia «uént»)"
-        ),
-        EnglishExercise(
-            "Identifica el verbo en pasado simple de la oración.",
-            "Which word is in the past tense? 'She watched a movie.'",
-            listOf("She", "watched", "movie", "a"), "watched",
-            "'watched' es el pasado regular de 'watch' (mirar).",
-            "watched = /wɒtʃt/  (se pronuncia «uótcht»)"
-        ),
-        EnglishExercise(
-            "Traduce usando el tiempo pasado.",
-            "Nosotros comimos manzanas ayer.",
-            listOf(
-                "We ate apples yesterday", "We eat apples yesterday",
-                "We eaten apples yesterday", "We eated apples yesterday"
-            ), "We ate apples yesterday",
-            "'eat' es irregular: su pasado es 'ate'. 'ayer' = 'yesterday'.",
-            "ate = /eɪt/  (se pronuncia «éit»)"
-        ),
-        EnglishExercise(
-            "Completa con el pasado de 'see'.",
-            "I ______ a beautiful bird this morning.",
-            listOf("seed", "saw", "seen", "sees"), "saw",
-            "El pasado de 'see' (ver) es irregular: 'saw'.",
-            "saw = /sɔː/  (se pronuncia «so»)"
-        )
+    // ---------------- INGLÉS (currículo rotativo estilo Duolingo) ----------------
+    // Cada día toca UNA unidad distinta (rotación determinística por fecha):
+    // pasado, futuro, irregulares, presente, y días temáticos de vocabulario.
+    data class EnglishUnit(val title: String, val bank: List<EnglishExercise>)
+
+    private val englishUnits = listOf(
+        EnglishUnit("Viaje al pasado (Past Simple)", listOf(
+            EnglishExercise(
+                "Elige la forma correcta del verbo 'run' en pasado.",
+                "Yesterday, Liam ______ to school because he was late.",
+                listOf("runned", "ran", "runs", "running"), "ran",
+                "El pasado de 'run' (correr) es irregular: 'ran'.",
+                "ran = /ræn/ («ran»)"
+            ),
+            EnglishExercise(
+                "Elige la forma correcta en pasado del verbo 'go'.",
+                "Last weekend, we ______ to the beach with our dog.",
+                listOf("goed", "goes", "went", "going"), "went",
+                "El pasado de 'go' (ir) es irregular: 'went'.",
+                "went = /wɛnt/ («uént»)"
+            ),
+            EnglishExercise(
+                "Identifica el verbo en pasado simple de la oración.",
+                "Which word is in the past tense? 'She watched a movie.'",
+                listOf("She", "watched", "movie", "a"), "watched",
+                "'watched' es el pasado regular de 'watch' (mirar).",
+                "watched = /wɒtʃt/ («uótcht»)"
+            ),
+            EnglishExercise(
+                "Traduce usando el tiempo pasado.",
+                "Nosotros comimos manzanas ayer.",
+                listOf(
+                    "We ate apples yesterday", "We eat apples yesterday",
+                    "We eaten apples yesterday", "We eated apples yesterday"
+                ), "We ate apples yesterday",
+                "'eat' es irregular: su pasado es 'ate'. 'ayer' = 'yesterday'.",
+                "ate = /eɪt/ («éit»)"
+            ),
+            EnglishExercise(
+                "Completa con el pasado de 'see'.",
+                "I ______ a beautiful bird this morning.",
+                listOf("seed", "saw", "seen", "sees"), "saw",
+                "El pasado de 'see' (ver) es irregular: 'saw'.",
+                "saw = /sɔː/ («so»)"
+            )
+        )),
+
+        EnglishUnit("El futuro (will / going to)", listOf(
+            EnglishExercise(
+                "Completa la frase sobre el futuro.",
+                "Tomorrow, I ______ visit my grandma.",
+                listOf("will", "did", "was", "am"), "will",
+                "'will' + verbo expresa futuro: 'I will visit' = visitaré.",
+                "will = /wɪl/ («uíl»)"
+            ),
+            EnglishExercise(
+                "Completa con 'going to'.",
+                "She is ______ to study tonight.",
+                listOf("going", "goes", "went", "go"), "going",
+                "'be going to' = plan futuro: 'is going to study' = va a estudiar.",
+                "going = /ˈgoʊɪŋ/ («góuing»)"
+            ),
+            EnglishExercise(
+                "Traduce al inglés (futuro).",
+                "Yo comeré pizza mañana.",
+                listOf(
+                    "I will eat pizza tomorrow", "I ate pizza tomorrow",
+                    "I eat pizza yesterday", "I eating pizza tomorrow"
+                ), "I will eat pizza tomorrow",
+                "Futuro con 'will' + verbo base: will eat. 'mañana' = 'tomorrow'.",
+                "tomorrow = /təˈmɒroʊ/ («tumórrou»)"
+            ),
+            EnglishExercise(
+                "Completa la frase sobre el futuro.",
+                "They ______ play soccer next Saturday.",
+                listOf("will", "played", "was", "were"), "will",
+                "'next Saturday' (el próximo sábado) pide futuro: 'will play'.",
+                "will play = /wɪl pleɪ/ («uíl pléi»)"
+            ),
+            EnglishExercise(
+                "¿Cuál frase habla del FUTURO?",
+                "Choose the sentence about the future.",
+                listOf(
+                    "We will travel next year", "We traveled last year",
+                    "We travel every year", "We were traveling"
+                ), "We will travel next year",
+                "'will travel' + 'next year' = viajaremos el próximo año.",
+                "travel = /ˈtrævəl/ («trável»)"
+            )
+        )),
+
+        EnglishUnit("Verbos irregulares", listOf(
+            EnglishExercise(
+                "¿Cuál es el pasado de 'buy' (comprar)?",
+                "Yesterday, mom ______ tortillas at the market.",
+                listOf("buyed", "bought", "buys", "buying"), "bought",
+                "'buy' es irregular: su pasado es 'bought'.",
+                "bought = /bɔːt/ («bot»)"
+            ),
+            EnglishExercise(
+                "¿Cuál es el pasado de 'make' (hacer)?",
+                "He ______ a beautiful drawing in class.",
+                listOf("maked", "made", "makes", "making"), "made",
+                "'make' es irregular: su pasado es 'made'.",
+                "made = /meɪd/ («méid»)"
+            ),
+            EnglishExercise(
+                "¿Cuál es el pasado de 'have' (tener)?",
+                "We ______ a great time at the party.",
+                listOf("haved", "had", "has", "having"), "had",
+                "'have' es irregular: su pasado es 'had'.",
+                "had = /hæd/ («jad»)"
+            ),
+            EnglishExercise(
+                "¿Cuál es el pasado de 'take' (tomar/llevar)?",
+                "She ______ the bus to school this morning.",
+                listOf("taked", "took", "takes", "taking"), "took",
+                "'take' es irregular: su pasado es 'took'.",
+                "took = /tʊk/ («tuk»)"
+            ),
+            EnglishExercise(
+                "¿Cuál es el pasado de 'come' (venir)?",
+                "My cousins ______ to visit us last month.",
+                listOf("comed", "came", "comes", "coming"), "came",
+                "'come' es irregular: su pasado es 'came'.",
+                "came = /keɪm/ («kéim»)"
+            )
+        )),
+
+        EnglishUnit("El presente (Present Simple)", listOf(
+            EnglishExercise(
+                "Completa en presente (tercera persona).",
+                "She ______ to school every day.",
+                listOf("goes", "go", "went", "going"), "goes",
+                "Con he/she/it el verbo lleva -s/-es: 'she goes'.",
+                "goes = /goʊz/ («góus»)"
+            ),
+            EnglishExercise(
+                "Completa en presente.",
+                "I ______ breakfast at seven o'clock.",
+                listOf("have", "has", "had", "having"), "have",
+                "Con 'I' se usa 'have' (has es solo para he/she/it).",
+                "have = /hæv/ («jav»)"
+            ),
+            EnglishExercise(
+                "Completa la pregunta.",
+                "______ you like apples?",
+                listOf("Do", "Does", "Did", "Is"), "Do",
+                "Preguntas en presente con you/we/they usan 'Do'.",
+                "do = /duː/ («du»)"
+            ),
+            EnglishExercise(
+                "Traduce al inglés (presente).",
+                "Nosotros vivimos en México.",
+                listOf(
+                    "We live in Mexico", "We lived in Mexico",
+                    "We living in Mexico", "We lives in Mexico"
+                ), "We live in Mexico",
+                "Presente simple: 'we live'. Sin -s porque no es he/she/it.",
+                "live = /lɪv/ («liv»)"
+            ),
+            EnglishExercise(
+                "Completa en presente (tercera persona).",
+                "My brother ______ soccer on Sundays.",
+                listOf("plays", "play", "played", "playing"), "plays",
+                "Con 'my brother' (él) el verbo lleva -s: 'plays'.",
+                "plays = /pleɪz/ («pléis»)"
+            )
+        )),
+
+        EnglishUnit("Un día de escuela (vocabulario)", listOf(
+            EnglishExercise(
+                "¿Cómo se dice 'mochila' en inglés?",
+                "I carry my books in my ______.",
+                listOf("backpack", "pencil", "desk", "lunch"), "backpack",
+                "'backpack' = mochila.",
+                "backpack = /ˈbækpæk/ («bákpak»)"
+            ),
+            EnglishExercise(
+                "¿Quién enseña la clase?",
+                "The ______ teaches the class.",
+                listOf("teacher", "student", "doctor", "driver"), "teacher",
+                "'teacher' = maestro/maestra.",
+                "teacher = /ˈtiːtʃər/ («tícher»)"
+            ),
+            EnglishExercise(
+                "¿Cómo se dice 'cuaderno' en inglés?",
+                "I write my homework in my ______.",
+                listOf("notebook", "window", "chair", "door"), "notebook",
+                "'notebook' = cuaderno.",
+                "notebook = /ˈnoʊtbʊk/ («nóutbuk»)"
+            ),
+            EnglishExercise(
+                "¿Cómo se dice 'recreo' en inglés?",
+                "We play with our friends at ______.",
+                listOf("recess", "homework", "test", "class"), "recess",
+                "'recess' = recreo.",
+                "recess = /ˈriːsɛs/ («ríses»)"
+            ),
+            EnglishExercise(
+                "¿Cómo se dice 'tarea' en inglés?",
+                "I do my ______ after school.",
+                listOf("homework", "breakfast", "shower", "game"), "homework",
+                "'homework' = tarea.",
+                "homework = /ˈhoʊmwɜːrk/ («jóumuerk»)"
+            )
+        )),
+
+        EnglishUnit("De viaje (vocabulario)", listOf(
+            EnglishExercise(
+                "¿En qué volamos a otro país?",
+                "We fly in an ______.",
+                listOf("airplane", "car", "bicycle", "boat"), "airplane",
+                "'airplane' = avión.",
+                "airplane = /ˈɛərpleɪn/ («érplein»)"
+            ),
+            EnglishExercise(
+                "¿Dónde dormimos en un viaje?",
+                "We sleep in a ______.",
+                listOf("hotel", "school", "kitchen", "garden"), "hotel",
+                "'hotel' = hotel (¡se escribe igual!).",
+                "hotel = /hoʊˈtɛl/ («joutél»)"
+            ),
+            EnglishExercise(
+                "¿Cómo se dice 'playa' en inglés?",
+                "We swim at the ______.",
+                listOf("beach", "mountain", "city", "store"), "beach",
+                "'beach' = playa.",
+                "beach = /biːtʃ/ («bich»)"
+            ),
+            EnglishExercise(
+                "¿Cómo se dice 'maleta' en inglés?",
+                "I pack my clothes in my ______.",
+                listOf("suitcase", "wallet", "hat", "shoe"), "suitcase",
+                "'suitcase' = maleta.",
+                "suitcase = /ˈsuːtkeɪs/ («sútkeis»)"
+            ),
+            EnglishExercise(
+                "¿Qué necesitas para subir al avión?",
+                "Show your ______ to get on the plane.",
+                listOf("ticket", "toy", "sandwich", "pillow"), "ticket",
+                "'ticket' = boleto.",
+                "ticket = /ˈtɪkɪt/ («tíket»)"
+            )
+        )),
+
+        EnglishUnit("La familia (vocabulario)", listOf(
+            EnglishExercise(
+                "¿Cómo se dice 'hermano' en inglés?",
+                "My ______ plays video games with me.",
+                listOf("brother", "sister", "father", "uncle"), "brother",
+                "'brother' = hermano.",
+                "brother = /ˈbrʌðər/ («bróder»)"
+            ),
+            EnglishExercise(
+                "¿Cómo se dice 'abuela' en inglés?",
+                "My ______ makes delicious cookies.",
+                listOf("grandmother", "teacher", "cousin", "aunt"), "grandmother",
+                "'grandmother' = abuela.",
+                "grandmother = /ˈgrænmʌðər/ («gránmader»)"
+            ),
+            EnglishExercise(
+                "¿Cómo se dice 'primo' en inglés?",
+                "My ______ lives in another city.",
+                listOf("cousin", "brother", "nephew", "son"), "cousin",
+                "'cousin' = primo o prima.",
+                "cousin = /ˈkʌzən/ («kásen»)"
+            ),
+            EnglishExercise(
+                "¿Cómo se dice 'padres' en inglés?",
+                "My ______ take care of me.",
+                listOf("parents", "friends", "teachers", "neighbors"), "parents",
+                "'parents' = padres (papá y mamá).",
+                "parents = /ˈpɛərənts/ («pérents»)"
+            ),
+            EnglishExercise(
+                "¿Cómo se dice 'tía' en inglés?",
+                "My ______ is my mom's sister.",
+                listOf("aunt", "uncle", "grandma", "sister"), "aunt",
+                "'aunt' = tía.",
+                "aunt = /ænt/ («ant»)"
+            )
+        )),
+
+        EnglishUnit("La comida (vocabulario)", listOf(
+            EnglishExercise(
+                "¿Cómo se dice 'desayuno' en inglés?",
+                "I eat ______ in the morning.",
+                listOf("breakfast", "dinner", "lunch", "snack"), "breakfast",
+                "'breakfast' = desayuno.",
+                "breakfast = /ˈbrɛkfəst/ («brékfast»)"
+            ),
+            EnglishExercise(
+                "¿Cómo se dice 'pollo' en inglés?",
+                "We had rice and ______ for lunch.",
+                listOf("chicken", "beef", "fish", "cheese"), "chicken",
+                "'chicken' = pollo.",
+                "chicken = /ˈtʃɪkɪn/ («chíken»)"
+            ),
+            EnglishExercise(
+                "¿Cómo se dice 'arroz' en inglés?",
+                "My favorite food is ______ with beans.",
+                listOf("rice", "bread", "soup", "salad"), "rice",
+                "'rice' = arroz.",
+                "rice = /raɪs/ («ráis»)"
+            ),
+            EnglishExercise(
+                "¿Cómo se dice 'jugo' en inglés?",
+                "I drink orange ______ every morning.",
+                listOf("juice", "milk", "water", "soda"), "juice",
+                "'juice' = jugo.",
+                "juice = /dʒuːs/ («llus»)"
+            ),
+            EnglishExercise(
+                "¿Cómo se dice 'verduras' en inglés?",
+                "Eat your ______ to grow strong!",
+                listOf("vegetables", "candies", "cookies", "chips"), "vegetables",
+                "'vegetables' = verduras.",
+                "vegetables = /ˈvɛdʒtəbəlz/ («véchtabols»)"
+            )
+        ))
     )
+
+    /** Índice de la unidad del día (rotación determinística por fecha). */
+    private fun todaysUnitIndex(): Int {
+        val dayOfYear = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_YEAR)
+        return dayOfYear % englishUnits.size
+    }
+
+    /** Título de la lección de inglés de HOY (para mostrar en la UI). */
+    fun todaysEnglishUnitTitle(): String = englishUnits[todaysUnitIndex()].title
 
     // Vocabulario con dibujos para Preescolar/1º: (emoji, palabra, fonética, español)
     private data class VocabItem(val emoji: String, val word: String, val phon: String, val es: String)
@@ -550,7 +842,9 @@ object ChallengeEngine {
             }
             return ex
         }
-        val pool = englishBank.filter { it.question != exclude }.ifEmpty { englishBank }
+        // Primaria/Secundaria: se practica la UNIDAD DEL DÍA (rotación por fecha).
+        val bank = englishUnits[todaysUnitIndex()].bank
+        val pool = bank.filter { it.question != exclude }.ifEmpty { bank }
         return pool.random().let { it.copy(options = it.options.shuffled()) }
     }
 

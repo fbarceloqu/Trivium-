@@ -169,7 +169,8 @@ fun KioskScreen(
             Stage.ENGLISH -> {
                 val starter = profile.grade == GradeLevel.PREESCOLAR
                 MultipleChoiceStage(
-                    title = if (starter) "Inglés · palabras con dibujos" else "Inglés · Past Tense",
+                    title = if (starter) "Inglés · palabras con dibujos"
+                    else "Inglés · Lección de hoy: ${ChallengeEngine.todaysEnglishUnitTitle()}",
                     accent = MaterialTheme.colorScheme.secondary,
                     window = config.englishWindow,
                     nextLabel = "Continuar a Lectura",

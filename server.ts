@@ -90,12 +90,28 @@ async function startServer() {
       return res.json({ ...englishFallback(), mode: "fallback" });
     }
 
+    // Currículo rotativo estilo Duolingo: cada día toca una lección distinta.
+    const ENGLISH_TOPICS = [
+      "el tiempo pasado (Past Simple, regulares e irregulares)",
+      "el futuro (will y going to)",
+      "verbos irregulares comunes (buy/bought, make/made, take/took...)",
+      "el presente simple (tercera persona -s, preguntas con do/does)",
+      "vocabulario de un día de escuela (backpack, teacher, homework...)",
+      "vocabulario de viajes (airplane, hotel, beach, suitcase...)",
+      "vocabulario de la familia (brother, grandmother, cousin...)",
+      "vocabulario de comida (breakfast, chicken, juice...)",
+    ];
+    const dayOfYear = Math.floor(
+      (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
+    );
+    const todaysTopic = ENGLISH_TOPICS[dayOfYear % ENGLISH_TOPICS.length];
+
     try {
       const response = await ai.models.generateContent({
         model: GEMINI_MODEL,
-        contents: "Genera un ejercicio interactivo de inglés enfocado en el tiempo pasado (Past Tense) para un niño. Las explicaciones e instrucciones deben estar en español. Retorna el ejercicio siguiendo el formato JSON requerido.",
+        contents: `Genera un ejercicio interactivo de inglés para un niño sobre la lección de hoy: ${todaysTopic}. Las explicaciones e instrucciones deben estar en español. Incluye en la explicación la pronunciación figurada de la palabra clave (ej. went = «uént»). Retorna el ejercicio siguiendo el formato JSON requerido.`,
         config: {
-          systemInstruction: "Eres un tutor de inglés divertido para niños estilo Duolingo. Diseñas preguntas entretenidas de opción múltiple con respuestas claras y explicaciones entusiastas en español.",
+          systemInstruction: "Eres un tutor de inglés divertido para niños estilo Duolingo. Diseñas preguntas entretenidas de opción múltiple con respuestas claras y explicaciones entusiastas en español, variando entre completar huecos, traducir e identificar.",
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
