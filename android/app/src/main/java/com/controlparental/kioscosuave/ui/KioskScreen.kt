@@ -20,6 +20,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import com.controlparental.kioscosuave.ChallengeEngine
 import com.controlparental.kioscosuave.ChildProfile
 import com.controlparental.kioscosuave.EnglishExercise
+import com.controlparental.kioscosuave.GeminiClient
 import com.controlparental.kioscosuave.GradeLevel
 import com.controlparental.kioscosuave.MathQuestion
 import com.controlparental.kioscosuave.ProgressSync
@@ -388,6 +390,8 @@ private fun ReadingStage(advanced: Boolean, onApproved: () -> Unit) {
     var summary by remember { mutableStateOf("") }
     var result by remember { mutableStateOf<SummaryResult?>(null) }
     var submitCount by remember { mutableStateOf(0) }
+    var evaluating by remember { mutableStateOf(false) }
+    var evaluatedByAi by remember { mutableStateOf(false) }
 
     val passed = (result?.score ?: 0) >= PASS_ACCURACY
 
@@ -426,9 +430,19 @@ private fun ReadingStage(advanced: Boolean, onApproved: () -> Unit) {
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
     )
 
+    if (evaluating) {
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+            Spacer(Modifier.size(8.dp))
+            Text("IA evaluando tu resumen…", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+
     result?.let { r ->
         Spacer(Modifier.height(12.dp))
-        FeedbackBox(passed, "${r.feedback}\n\n💡 ${r.suggestions}  ·  Puntaje: ${r.score}/100")
+        val badge = if (evaluatedByAi) "🤖 Evaluado por IA" else "📋 Evaluado localmente (sin conexión)"
+        FeedbackBox(passed, "$badge\n\n${r.feedback}\n\n💡 ${r.suggestions}  ·  Puntaje: ${r.score}/100")
     }
 
     Spacer(Modifier.height(12.dp))
@@ -440,12 +454,29 @@ private fun ReadingStage(advanced: Boolean, onApproved: () -> Unit) {
         Button(
             onClick = {
                 submitCount++
-                val r = ChallengeEngine.evaluateSummary(passage.text, summary)
-                result = r
-                // Sube el resultado de lectura (score y nº de envíos).
-                ProgressSync.reportReading(ctx, r.score, submitCount)
+                evaluating = true
+                // Intenta evaluar con IA (Gemini); si falla, no hay internet, o no
+                // hay API key configurada, degrada a la heurística local (misma
+                // política fail-safe que el backend web: nunca aprueba a ciegas).
+                GeminiClient.evaluateSummary(passage.text, summary) { aiResult ->
+                    evaluating = false
+                    if (aiResult != null) {
+                        evaluatedByAi = true
+                        result = SummaryResult(
+                            approved = aiResult.approved,
+                            score = aiResult.score,
+                            feedback = aiResult.feedback,
+                            suggestions = aiResult.suggestions
+                        )
+                    } else {
+                        evaluatedByAi = false
+                        result = ChallengeEngine.evaluateSummary(passage.text, summary)
+                    }
+                    // Sube el resultado de lectura (score y nº de envíos).
+                    ProgressSync.reportReading(ctx, result!!.score, submitCount)
+                }
             },
-            enabled = summary.trim().length >= 15,
+            enabled = summary.trim().length >= 15 && !evaluating,
             modifier = Modifier.fillMaxWidth()
         ) { Text("Enviar resumen") }
     }

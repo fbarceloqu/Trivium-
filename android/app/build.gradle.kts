@@ -1,9 +1,21 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.gms.google-services")
 }
+
+// Lee la API key de Gemini desde local.properties (NUNCA se sube a git: cada
+// quien pone la suya). Si no existe, queda vacía y las llamadas a IA fallan
+// limpiamente -> el motor de retos usa su respaldo local (fail-safe, sin key
+// la app funciona 100% offline igual que antes).
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) load(file.inputStream())
+}
+val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY", "")
 
 android {
     namespace = "com.controlparental.kioscosuave"
@@ -16,6 +28,7 @@ android {
         versionCode = 1
         versionName = "1.0-standalone"
         vectorDrawables { useSupportLibrary = true }
+        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
     }
 
     buildTypes {
@@ -37,6 +50,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     // Nota: con Kotlin 2.x ya no se usa composeOptions/kotlinCompilerExtensionVersion;
     // el plugin org.jetbrains.kotlin.plugin.compose fija el compilador de Compose.

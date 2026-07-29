@@ -1,9 +1,28 @@
-# Kiosco Suave — APK Android (v1 standalone)
+# Kiosco Suave — APK Android
 
-App nativa del kiosco educativo. **v1 = 100% offline**: los retos de matemáticas,
-inglés (past tense) y comprensión lectora, y la evaluación del resumen, se
-generan y califican **localmente en Kotlin**. No requiere servidor ni Firebase
-(eso llega en v2 para control remoto y IA con Gemini).
+App nativa del kiosco educativo. El **núcleo es 100% offline**: los retos de
+matemáticas, inglés y comprensión lectora, y su evaluación, se generan y
+califican **localmente en Kotlin** sin necesitar internet.
+
+**Fase D (opcional):** si hay internet Y una API key de Gemini configurada,
+la evaluación del resumen de lectura se hace con IA real (`GeminiClient.kt`,
+llamada directa desde la tablet). Si falla, no hay internet, o no hay key, se
+degrada automáticamente a la heurística local — nunca se rompe la experiencia.
+
+## Configurar la IA (opcional)
+
+1. Crea/copia `android/local.properties` (si no existe: Android Studio lo crea
+   solo al abrir el proyecto, ya trae `sdk.dir`).
+2. Agrega una línea con tu API key de [aistudio.google.com/apikey](https://aistudio.google.com/apikey):
+   ```
+   GEMINI_API_KEY=tu_key_aqui
+   ```
+3. Sincroniza Gradle y recompila. `local.properties` nunca se sube a git.
+
+⚠️ La key viaja embebida en el APK (llamada directa, sin backend). Es una
+decisión aceptada para este proyecto familiar: usa una key de nivel gratuito
+sin facturación, así que el peor caso de una fuga es agotar la cuota, no un
+cargo de dinero. Si se comparte el APK fuera de la familia, hay que rotar la key.
 
 ## Escenario soportado
 - **Una tablet por niño.** Cada dispositivo se configura una vez con el perfil
@@ -52,6 +71,7 @@ app/src/main/java/com/controlparental/kioscosuave/
 ├─ ProfileStore.kt              # Persistencia local (SharedPreferences)
 ├─ SessionStateMachine.kt       # Bloqueo/desbloqueo diario
 ├─ ChallengeEngine.kt           # Retos y evaluación de resumen OFFLINE
+├─ GeminiClient.kt              # Evaluación de resumen con IA (Fase D, opcional)
 ├─ KioskAccessibilityService.kt # Watchdog (rebote reactivo)
 ├─ KioskForegroundService.kt    # Servicio persistente
 ├─ BootReceiver.kt              # Auto-arranque tras reinicio
