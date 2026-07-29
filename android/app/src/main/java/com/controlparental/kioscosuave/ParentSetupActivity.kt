@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -27,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -61,6 +63,12 @@ class ParentSetupActivity : ComponentActivity() {
     private fun PinGate(onSuccess: () -> Unit) {
         var pin by remember { mutableStateOf("") }
         var error by remember { mutableStateOf(false) }
+
+        fun tryEnter() {
+            if (ProfileStore.verifyPin(this@ParentSetupActivity, pin)) onSuccess()
+            else error = true
+        }
+
         Column(
             modifier = Modifier.fillMaxSize().padding(32.dp),
             verticalArrangement = Arrangement.Center
@@ -69,20 +77,23 @@ class ParentSetupActivity : ComponentActivity() {
             Spacer(Modifier.height(16.dp))
             OutlinedTextField(
                 value = pin,
-                onValueChange = { pin = it; error = false },
+                // Solo dígitos: Enter/pegar texto no pueden meter caracteres invisibles.
+                onValueChange = { pin = it.filter(Char::isDigit); error = false },
                 label = { Text("PIN") },
                 isError = error,
+                singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.NumberPassword,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(onDone = { tryEnter() }),
                 modifier = Modifier.fillMaxWidth()
             )
             if (error) Text("PIN incorrecto", color = MaterialTheme.colorScheme.error)
             Spacer(Modifier.height(16.dp))
             Button(
-                onClick = {
-                    if (ProfileStore.verifyPin(this@ParentSetupActivity, pin)) onSuccess()
-                    else error = true
-                },
+                onClick = { tryEnter() },
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Entrar") }
         }
@@ -109,6 +120,7 @@ class ParentSetupActivity : ComponentActivity() {
                 value = name,
                 onValueChange = { name = it },
                 label = { Text("Nombre del niño") },
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(16.dp))
@@ -134,10 +146,14 @@ class ParentSetupActivity : ComponentActivity() {
 
             OutlinedTextField(
                 value = pin,
-                onValueChange = { pin = it },
+                onValueChange = { pin = it.filter(Char::isDigit) },
                 label = { Text(if (existing != null) "Nuevo PIN (4+ dígitos)" else "Crear PIN (4+ dígitos)") },
+                singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.NumberPassword,
+                    imeAction = ImeAction.Done
+                ),
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(16.dp))
