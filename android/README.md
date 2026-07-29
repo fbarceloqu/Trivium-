@@ -24,6 +24,22 @@ decisión aceptada para este proyecto familiar: usa una key de nivel gratuito
 sin facturación, así que el peor caso de una fuga es agotar la cuota, no un
 cargo de dinero. Si se comparte el APK fuera de la familia, hay que rotar la key.
 
+## Imágenes de vocabulario (opcional)
+
+`app/src/main/res/drawable-nodpi/` contiene imágenes reales de vocabulario
+(generadas externamente con el prompt de `docs/GEMINI_PROMPTS.md`, sección
+"Imágenes para el vocabulario"). `ChallengeEngine.wordForEmoji()` +
+`imageResFor()` en la UI detectan automáticamente si existe un archivo para
+una palabra y lo usan en vez del emoji — no requiere tocar código.
+
+⚠️ **Esa carpeta es una carpeta de RECURSOS de Android**: solo puede contener
+imágenes (`.png`, `.jpg`, `.webp`) o `.xml`. **Nunca pongas ahí un `.md` u
+otro archivo** — rompe la compilación (`mergeDebugResources`/
+`packageDebugResources` fallan con "file name must end with .xml or .png").
+
+Convención de nombre: la palabra en inglés, minúsculas, `_` en vez de
+espacio (p. ej. `police_officer.jpg`).
+
 ## Escenario soportado
 - **Una tablet por niño.** Cada dispositivo se configura una vez con el perfil
   del niño (nombre + nivel escolar) protegido por un PIN de padres.
