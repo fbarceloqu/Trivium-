@@ -56,7 +56,11 @@ object ProgressSync {
             .addOnFailureListener { Log.w(TAG, "Auth anónima falló (¿proveedor deshabilitado?): ${it.message}") }
     }
 
-    /** Registra/actualiza el perfil del niño y marca actividad (llamar al abrir la app). */
+    /**
+     * Registra/actualiza el perfil del niño y marca actividad (llamar al abrir
+     * la app). Incluye el RESPALDO del pinHash y ajustes: si se borran los
+     * datos locales o se reinstala, tryRestoreProfile los recupera.
+     */
     fun registerChild(ctx: Context) {
         if (!ProfileStore.isConfigured(ctx)) return
         val profile = ProfileStore.getProfile(ctx)
@@ -65,12 +69,59 @@ object ProgressSync {
                 mapOf(
                     "name" to profile.name,
                     "grade" to profile.grade.name,
+                    "pinHash" to (ProfileStore.pinHash(ctx) ?: ""),
+                    "blockSettings" to ProfileStore.blockSettings(ctx),
+                    "emergencyCalls" to ProfileStore.emergencyCalls(ctx),
                     "lastSeen" to FieldValue.serverTimestamp(),
                     "updatedAt" to FieldValue.serverTimestamp()
                 ),
                 SetOptions.merge()
             ).addOnFailureListener { Log.w(TAG, "registerChild: ${it.message}") }
         }
+    }
+
+    /**
+     * Intenta restaurar el perfil (nombre, nivel, PIN, ajustes) y la sesión de
+     * hoy desde Firestore. Llama a [onResult] con true si restauró algo.
+     * Best-effort: si no hay internet o no hay respaldo, onResult(false).
+     */
+    fun tryRestoreProfile(ctx: Context, onResult: (Boolean) -> Unit) {
+        val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+        val run = {
+            childDoc(ctx).get()
+                .addOnSuccessListener { snap ->
+                    val pinHash = snap.getString("pinHash")
+                    if (snap.exists() && !pinHash.isNullOrBlank()) {
+                        ProfileStore.restoreFromCloud(
+                            ctx,
+                            name = snap.getString("name") ?: "Estudiante",
+                            gradeName = snap.getString("grade"),
+                            pinHash = pinHash,
+                            blockSettings = snap.getBoolean("blockSettings") ?: true,
+                            emergencyCalls = snap.getBoolean("emergencyCalls") ?: true
+                        )
+                        // Restaurar también la sesión del día (si hoy ya desbloqueó).
+                        dayDoc(ctx).get()
+                            .addOnSuccessListener { day ->
+                                if (day.exists() && day.get("unlockedAt") != null) {
+                                    SessionStateMachine.setUnlocked(ctx)
+                                }
+                                onResult(true)
+                            }
+                            .addOnFailureListener { onResult(true) }
+                    } else {
+                        onResult(false)
+                    }
+                }
+                .addOnFailureListener {
+                    Log.w(TAG, "tryRestoreProfile: ${it.message}")
+                    onResult(false)
+                }
+        }
+        if (auth.currentUser != null) run()
+        else auth.signInAnonymously()
+            .addOnSuccessListener { run() }
+            .addOnFailureListener { onResult(false) }
     }
 
     /** Resultado de una etapa de opción múltiple ("math" o "english"). */

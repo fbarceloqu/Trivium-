@@ -1,16 +1,32 @@
 rules_version = '2';
-// Reglas Fase A de Trivium: las tablets (sesión anónima) pueden escribir el
-// progreso de su propio niño. Nadie sin autenticar puede leer ni escribir.
-// En la Fase B (dashboard web con login del padre) se restringirá la lectura
-// al UID del padre y la escritura de cada tablet a su propio childId.
+// Reglas de Trivium (Fase B):
+// - Las TABLETS entran con sesión anónima y escriben el progreso/respaldo.
+// - El PADRE entra con correo/contraseña (Email/Password) desde el Panel web
+//   y puede leerlo todo.
+// Nadie sin autenticar puede leer ni escribir.
+//
+// Limitación conocida (aceptable a escala familiar): cualquier sesión anónima
+// del proyecto cuenta como "tablet". En una fase posterior se puede ligar cada
+// documento al UID del dispositivo que lo creó.
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isParent() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'password';
+    }
+    function isTablet() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
     match /children/{childId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isParent() || isTablet();
       match /days/{day} {
-        allow read, write: if request.auth != null;
+        allow read, write: if isParent() || isTablet();
       }
     }
+
     // Todo lo demás, bloqueado.
     match /{document=**} {
       allow read, write: if false;

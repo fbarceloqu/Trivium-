@@ -7,3 +7,5 @@ coverage/
 .env*
 !.env.example
 .claude/
+# Config web de Firebase del panel (cada quien pega la suya)
+dashboard/firebase-config.js

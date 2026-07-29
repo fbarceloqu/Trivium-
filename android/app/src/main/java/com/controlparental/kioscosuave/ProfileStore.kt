@@ -73,6 +73,32 @@ object ProfileStore {
     fun emergencyCalls(ctx: Context): Boolean =
         prefs(ctx).getBoolean(KEY_EMERGENCY_CALLS, true)
 
+    /** Hash del PIN guardado (para respaldo en la nube). */
+    fun pinHash(ctx: Context): String? =
+        prefs(ctx).getString(KEY_PIN_HASH, null)
+
+    /**
+     * Restaura el perfil desde el respaldo en la nube (Firestore). El pinHash
+     * llega ya hasheado, se guarda tal cual.
+     */
+    fun restoreFromCloud(
+        ctx: Context,
+        name: String,
+        gradeName: String?,
+        pinHash: String,
+        blockSettings: Boolean,
+        emergencyCalls: Boolean
+    ) {
+        prefs(ctx).edit()
+            .putBoolean(KEY_CONFIGURED, true)
+            .putString(KEY_CHILD_NAME, name.trim().ifBlank { "Estudiante" })
+            .putString(KEY_GRADE, GradeLevel.fromName(gradeName).name)
+            .putString(KEY_PIN_HASH, pinHash)
+            .putBoolean(KEY_BLOCK_SETTINGS, blockSettings)
+            .putBoolean(KEY_EMERGENCY_CALLS, emergencyCalls)
+            .apply()
+    }
+
     fun verifyPin(ctx: Context, pin: String): Boolean {
         val stored = prefs(ctx).getString(KEY_PIN_HASH, null) ?: return false
         return stored == sha256(pin)

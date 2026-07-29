@@ -96,6 +96,20 @@ class LauncherActivity : ComponentActivity() {
 
     @Composable
     private fun NeedsSetupScreen() {
+        // Al iniciar sin perfil local, intenta restaurar el respaldo de la nube
+        // (perfil + PIN + sesión de hoy). Si no hay, se configura manualmente.
+        var cloudMsg by remember { mutableStateOf("Buscando respaldo en la nube…") }
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            ProgressSync.tryRestoreProfile(this@LauncherActivity) { restored ->
+                if (restored) {
+                    cloudMsg = "¡Perfil restaurado desde la nube!"
+                    refreshTick.intValue++
+                } else {
+                    cloudMsg = "Sin respaldo en la nube. Configura el perfil."
+                }
+            }
+        }
+
         Column(
             modifier = Modifier.fillMaxSize().padding(32.dp),
             verticalArrangement = Arrangement.Center,
@@ -103,7 +117,7 @@ class LauncherActivity : ComponentActivity() {
         ) {
             Text("Kiosco Suave", style = MaterialTheme.typography.headlineMedium)
             Text(
-                "Configura el perfil del niño para comenzar.",
+                cloudMsg,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(vertical = 16.dp)
             )

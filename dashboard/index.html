@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trivium · Panel de Padres</title>
+  <style>
+    :root {
+      --bg: #020617; --surface: #0f172a; --border: #1e293b;
+      --text: #e2e8f0; --muted: #94a3b8; --indigo: #6366f1;
+      --green: #10b981; --red: #ef4444; --amber: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      min-height: 100vh; padding: 24px;
+    }
+    .hidden { display: none !important; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border);
+    }
+    h1 { font-size: 20px; }
+    h1 .badge {
+      font-size: 11px; background: rgba(99,102,241,.15); color: var(--indigo);
+      border: 1px solid rgba(99,102,241,.3); padding: 2px 8px; border-radius: 999px;
+      vertical-align: middle; margin-left: 8px;
+    }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 20px;
+    }
+    /* Login */
+    #login-view { max-width: 380px; margin: 10vh auto; }
+    #login-view h2 { margin-bottom: 6px; }
+    #login-view p { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+    input {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      color: var(--text); padding: 10px 12px; border-radius: 10px;
+      margin-bottom: 10px; font-size: 14px;
+    }
+    input:focus { outline: none; border-color: var(--indigo); }
+    button {
+      background: var(--indigo); color: white; border: none; cursor: pointer;
+      padding: 10px 16px; border-radius: 10px; font-size: 14px; font-weight: 600;
+      width: 100%;
+    }
+    button:hover { filter: brightness(1.1); }
+    button.ghost {
+      background: transparent; border: 1px solid var(--border);
+      color: var(--muted); width: auto; font-weight: 400; font-size: 12px;
+    }
+    .error { color: var(--red); font-size: 13px; margin-top: 8px; min-height: 18px; }
+    /* Children grid */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .child-card { cursor: pointer; transition: border-color .15s; }
+    .child-card:hover { border-color: var(--indigo); }
+    .child-card h3 { font-size: 17px; margin-bottom: 2px; }
+    .child-card .grade { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+    .status { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+    .status.unlocked { color: var(--green); }
+    .status.locked { color: var(--red); }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip {
+      font-size: 11px; padding: 3px 8px; border-radius: 999px;
+      background: var(--bg); border: 1px solid var(--border); color: var(--muted);
+    }
+    .lastseen { font-size: 11px; color: var(--muted); margin-top: 10px; }
+    /* Detail table */
+    #detail-view h2 { margin-bottom: 4px; }
+    #detail-sub { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+    td.ok { color: var(--green); } td.bad { color: var(--red); } td.warn { color: var(--amber); }
+    .muted { color: var(--muted); }
+    #config-missing code { background: var(--bg); padding: 2px 6px; border-radius: 6px; font-size: 12px; }
+    #config-missing li { margin: 8px 0 8px 18px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🛡️ Trivium <span class="badge">Panel de Padres</span></h1>
+      <button id="logout-btn" class="ghost hidden">Cerrar sesión</button>
+    </header>
+
+    <!-- Falta configurar firebase-config.js -->
+    <div id="config-missing" class="card hidden">
+      <h2>Falta la configuración de Firebase</h2>
+      <p style="color:var(--muted); margin:10px 0;">Para conectar el panel a tu proyecto:</p>
+      <ol>
+        <li>En la consola de Firebase: <b>⚙️ Configuración del proyecto → Tus apps → Agregar app → Web (&lt;/&gt;)</b>. Regístrala (sin Hosting).</li>
+        <li>Copia el objeto <code>firebaseConfig</code> que te muestra.</li>
+        <li>En la carpeta <code>dashboard/</code>, copia <code>firebase-config.example.js</code> como <code>firebase-config.js</code> y pega ahí tus valores.</li>
+        <li>Recarga esta página.</li>
+      </ol>
+    </div>
+
+    <!-- Login -->
+    <div id="login-view" class="card hidden">
+      <h2>Inicia sesión</h2>
+      <p>Cuenta de padre/madre (correo y contraseña creados en Firebase Authentication).</p>
+      <form id="login-form">
+        <input type="email" id="email" placeholder="Correo" required autocomplete="username" />
+        <input type="password" id="password" placeholder="Contraseña" required autocomplete="current-password" />
+        <button type="submit">Entrar</button>
+        <div class="error" id="login-error"></div>
+      </form>
+    </div>
+
+    <!-- Lista de hijos -->
+    <div id="children-view" class="hidden">
+      <div class="grid" id="children-grid"></div>
+      <p class="muted" id="children-empty" style="margin-top:16px; display:none;">
+        Aún no hay tablets registradas. Abre Kiosco Suave en una tablet con internet y aparecerá aquí.
+      </p>
+    </div>
+
+    <!-- Detalle de un hijo -->
+    <div id="detail-view" class="hidden">
+      <button id="back-btn" class="ghost" style="margin-bottom:14px;">← Volver</button>
+      <div class="card">
+        <h2 id="detail-name"></h2>
+        <div id="detail-sub"></div>
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th><th>Mate</th><th>Inglés</th><th>Lectura</th>
+              <th>Desbloqueo</th><th>Intentos de evasión</th>
+            </tr>
+          </thead>
+          <tbody id="days-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

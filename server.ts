@@ -348,6 +348,10 @@ Aprueba (approved=true) solo si se cumple TODO: (1) es coherente y no son letras
     }
   });
 
+  // Panel de Padres (Fase B): estático, servido en /admin.
+  // Requiere dashboard/firebase-config.js (ver dashboard/firebase-config.example.js).
+  app.use("/admin", express.static(path.join(process.cwd(), "dashboard")));
+
   // Vite middleware setup for development, or static file server for production
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
