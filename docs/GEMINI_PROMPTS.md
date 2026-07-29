@@ -142,7 +142,44 @@ Formato por plantilla:
 Devuelve SOLO un arreglo JSON.
 ```
 
-## 7. Evaluador de resúmenes (ya en producción en `server.ts`)
+## 7. Alineado al plan SEP · 2º de Secundaria (México)
+
+Referencia oficial: https://conocetuslibros.sep.gob.mx/sec2 (colección Sk'asolil,
+Nueva Escuela Mexicana). Libros completos en https://libros.conaliteg.gob.mx.
+Campos formativos: Lenguajes · Saberes y pensamiento científico · Ética,
+naturaleza y sociedades · De lo humano y lo comunitario.
+
+```
+Eres profesor de 2º de secundaria en México y conoces el plan de la Nueva
+Escuela Mexicana (colección Sk'asolil). Genera 20 ejercicios de opción
+múltiple del campo "Saberes y pensamiento científico" para repaso diario,
+cubriendo el temario típico de 2º:
+
+- Multiplicación y división de fracciones y decimales
+- Ecuaciones lineales de una incógnita (incluye contextos)
+- Proporcionalidad directa e inversa, porcentajes
+- Sucesiones y expresiones algebraicas equivalentes
+- Perímetros, áreas y volúmenes de prismas
+- Probabilidad clásica y estadística básica (media, mediana)
+
+Reglas:
+- Todo en español; enunciados con contextos mexicanos cotidianos.
+- 4 opciones, una correcta; distractores basados en errores típicos.
+- "steps": procedimiento paso a paso estilo "el 8 está sumando → pasa
+  restando" (el que usa la app).
+- Resultados numéricos limpios (enteros o decimales de 1 cifra).
+
+Devuelve SOLO un arreglo JSON:
+[{"question": "...", "options": ["..."], "answer": "...",
+  "steps": ["...", "..."]}, ...]
+```
+
+Para lecturas del campo "Lenguajes" o "Ética, naturaleza y sociedades",
+usar el prompt 5 pidiendo: "temas alineados a 2º de secundaria SEP:
+diversidad cultural de México, ecosistemas mexicanos, historia de México,
+derechos humanos".
+
+## 8. Evaluador de resúmenes (ya en producción en `server.ts`)
 
 El prompt endurecido (anti-inyección, con rúbrica) ya está implementado en
 `server.ts` → endpoint `POST /api/ai/evaluate-summary`. Úsalo como referencia
