@@ -45,6 +45,253 @@ object ChallengeEngine {
     private val names = listOf("María", "Luis", "Ana", "Pedro", "Sofía", "Diego", "Lucía", "Mateo")
     private val things = listOf("manzanas", "canicas", "lápices", "galletas", "stickers", "monedas")
 
+    // Vocabulario con dibujos para Preescolar/1º: (emoji, palabra, fonética, español).
+    // Se declara aquí (antes de matemáticas) porque countEmojis reutiliza estos
+    // mismos emoji para los ejercicios de contar -> un solo pozo de imágenes
+    // sirve tanto para inglés como para matemáticas, con mucha más variedad
+    // que los 8 objetos fijos de antes.
+    // "emoji" es de mejor esfuerzo: si no hay un emoji Unicode claro para la
+    // palabra, se deja "" — la palabra queda lista en el vocabulario para
+    // emparejarse con una imagen real más adelante, pero mientras tanto no
+    // participa en los ejercicios de dibujos (ver filtro en starterEnglish()).
+    private data class VocabItem(val emoji: String, val word: String, val phon: String, val es: String)
+    private val starterVocab = listOf(
+        // --- Original (hoja "Listen, repeat and trace" + básicos) ---
+        VocabItem("🐶", "dog", "/dɒg/ («dog»)", "perro"),
+        VocabItem("🐱", "cat", "/kæt/ («cat»)", "gato"),
+        VocabItem("🍎", "apple", "/ˈæpəl/ («ápol»)", "manzana"),
+        VocabItem("☀️", "sun", "/sʌn/ («san»)", "sol"),
+        VocabItem("🏠", "house", "/haʊs/ («jaus»)", "casa"),
+        VocabItem("🐟", "fish", "/fɪʃ/ («fish»)", "pez"),
+        VocabItem("🐦", "bird", "/bɜːrd/ («berd»)", "pájaro"),
+        VocabItem("🥛", "milk", "/mɪlk/ («milk»)", "leche"),
+        VocabItem("⚽", "ball", "/bɔːl/ («bol»)", "pelota"),
+        VocabItem("🌙", "moon", "/muːn/ («mun»)", "luna"),
+        VocabItem("💧", "water", "/ˈwɔːtər/ («uóter»)", "agua"),
+        VocabItem("📖", "book", "/bʊk/ («buk»)", "libro"),
+        VocabItem("😊", "face", "/feɪs/ («féis»)", "cara"),
+        VocabItem("👁️", "eye", "/aɪ/ («ái»)", "ojo"),
+        VocabItem("👃", "nose", "/noʊz/ («nóus»)", "nariz"),
+        VocabItem("👄", "mouth", "/maʊθ/ («máuz»)", "boca"),
+        VocabItem("👂", "ear", "/ɪr/ («íer»)", "oreja"),
+        VocabItem("✋", "hand", "/hænd/ («jand»)", "mano"),
+
+        // --- Animales (granja, selva, mar) ---
+        VocabItem("🐘", "elephant", "/ˈɛlɪfənt/ («élefant»)", "elefante"),
+        VocabItem("🦒", "giraffe", "/dʒəˈræf/ («chiráf»)", "jirafa"),
+        VocabItem("🦁", "lion", "/ˈlaɪən/ («láion»)", "león"),
+        VocabItem("🐯", "tiger", "/ˈtaɪgər/ («táiguer»)", "tigre"),
+        VocabItem("🐻", "bear", "/bɛr/ («ber»)", "oso"),
+        VocabItem("🐒", "monkey", "/ˈmʌŋki/ («mónki»)", "mono"),
+        VocabItem("🐮", "cow", "/kaʊ/ («cáu»)", "vaca"),
+        VocabItem("🐷", "pig", "/pɪg/ («pig»)", "cerdo"),
+        VocabItem("🐑", "sheep", "/ʃiːp/ («ship»)", "oveja"),
+        VocabItem("🐴", "horse", "/hɔːrs/ («jors»)", "caballo"),
+        VocabItem("🦆", "duck", "/dʌk/ («dak»)", "pato"),
+        VocabItem("🐸", "frog", "/frɒg/ («frog»)", "rana"),
+        VocabItem("🐝", "bee", "/biː/ («bi»)", "abeja"),
+        VocabItem("🦋", "butterfly", "/ˈbʌtərflaɪ/ («báterflai»)", "mariposa"),
+        VocabItem("🐍", "snake", "/sneɪk/ («snéik»)", "serpiente"),
+        VocabItem("🐢", "turtle", "/ˈtɜːrtl/ («tértel»)", "tortuga"),
+        VocabItem("🐰", "rabbit", "/ˈræbɪt/ («rábit»)", "conejo"),
+        VocabItem("🐭", "mouse", "/maʊs/ («máus»)", "ratón"),
+        VocabItem("🦉", "owl", "/aʊl/ («ául»)", "búho"),
+        VocabItem("🐧", "penguin", "/ˈpɛŋgwɪn/ («pénguin»)", "pingüino"),
+        VocabItem("🐔", "chicken", "/ˈtʃɪkɪn/ («chíken»)", "gallina"),
+        VocabItem("🐺", "wolf", "/wʊlf/ («wulf»)", "lobo"),
+        VocabItem("🦊", "fox", "/fɒks/ («foks»)", "zorro"),
+        VocabItem("🐨", "koala", "/koʊˈɑːlə/ («koála»)", "koala"),
+        VocabItem("🐼", "panda", "/ˈpændə/ («panda»)", "panda"),
+        VocabItem("🦘", "kangaroo", "/ˌkæŋgəˈruː/ («kanguerú»)", "canguro"),
+        VocabItem("🐊", "crocodile", "/ˈkrɒkədaɪl/ («krókodail»)", "cocodrilo"),
+        VocabItem("🦈", "shark", "/ʃɑːrk/ («shark»)", "tiburón"),
+        VocabItem("🐳", "whale", "/weɪl/ («uéil»)", "ballena"),
+        VocabItem("🐬", "dolphin", "/ˈdɒlfɪn/ («dólfin»)", "delfín"),
+        VocabItem("🐙", "octopus", "/ˈɒktəpəs/ («óktopus»)", "pulpo"),
+        VocabItem("🦀", "crab", "/kræb/ («krab»)", "cangrejo"),
+        VocabItem("🐌", "snail", "/sneɪl/ («snéil»)", "caracol"),
+        VocabItem("🐜", "ant", "/ænt/ («ant»)", "hormiga"),
+        VocabItem("🦖", "dinosaur", "/ˈdaɪnəsɔːr/ («dáinosor»)", "dinosaurio"),
+        VocabItem("🐿️", "squirrel", "/ˈskwɜːrəl/ («eskuérel»)", "ardilla"),
+        VocabItem("🐫", "camel", "/ˈkæməl/ («kámel»)", "camello"),
+
+        // --- Comida, frutas, verduras, bebidas ---
+        VocabItem("🍌", "banana", "/bəˈnænə/ («banána»)", "plátano"),
+        VocabItem("🍊", "orange", "/ˈɒrɪndʒ/ («óranch»)", "naranja"),
+        VocabItem("🍓", "strawberry", "/ˈstrɔːbɛri/ («estróberi»)", "fresa"),
+        VocabItem("🍇", "grape", "/greɪp/ («gréip»)", "uva"),
+        VocabItem("🍉", "watermelon", "/ˈwɔːtərmɛlən/ («uótermelon»)", "sandía"),
+        VocabItem("🍍", "pineapple", "/ˈpaɪnæpəl/ («páinapol»)", "piña"),
+        VocabItem("🥭", "mango", "/ˈmæŋgoʊ/ («mángou»)", "mango"),
+        VocabItem("🍋", "lemon", "/ˈlɛmən/ («lémon»)", "limón"),
+        VocabItem("🥕", "carrot", "/ˈkærət/ («kárrot»)", "zanahoria"),
+        VocabItem("🥔", "potato", "/pəˈteɪtoʊ/ («potéito»)", "papa"),
+        VocabItem("🍅", "tomato", "/təˈmeɪtoʊ/ («toméito»)", "jitomate"),
+        VocabItem("🌽", "corn", "/kɔːrn/ («korn»)", "elote"),
+        VocabItem("🥦", "broccoli", "/ˈbrɒkəli/ («brókoli»)", "brócoli"),
+        VocabItem("🧅", "onion", "/ˈʌnjən/ («onion»)", "cebolla"),
+        VocabItem("🍞", "bread", "/brɛd/ («bred»)", "pan"),
+        VocabItem("🧀", "cheese", "/tʃiːz/ («chis»)", "queso"),
+        VocabItem("🥚", "egg", "/ɛg/ («eg»)", "huevo"),
+        VocabItem("🍕", "pizza", "/ˈpiːtsə/ («pítsa»)", "pizza"),
+        VocabItem("🎂", "cake", "/keɪk/ («kéik»)", "pastel"),
+        VocabItem("🍪", "cookie", "/ˈkʊki/ («cúki»)", "galleta"),
+        VocabItem("🍦", "ice cream", "/aɪs kriːm/ («áis krim»)", "helado"),
+        VocabItem("🍚", "rice", "/raɪs/ («ráis»)", "arroz"),
+        VocabItem("🌮", "taco", "/ˈtɑːkoʊ/ («táko»)", "taco"),
+        VocabItem("🍔", "hamburger", "/ˈhæmbɜːrgər/ («jámburguer»)", "hamburguesa"),
+        VocabItem("🌭", "hot dog", "/hɒt dɒg/ («jat dog»)", "hot dog"),
+        VocabItem("🧃", "juice", "/dʒuːs/ («llus»)", "jugo"),
+        VocabItem("☕", "coffee", "/ˈkɒfi/ («cófi»)", "café"),
+        VocabItem("🍫", "chocolate", "/ˈtʃɒklət/ («chóklet»)", "chocolate"),
+        VocabItem("🍬", "candy", "/ˈkændi/ («kándi»)", "dulce"),
+
+        // --- Colores (cuadros de color) ---
+        VocabItem("🟥", "red", "/rɛd/ («red»)", "rojo"),
+        VocabItem("🟦", "blue", "/bluː/ («blu»)", "azul"),
+        VocabItem("🟩", "green", "/griːn/ («grin»)", "verde"),
+        VocabItem("🟨", "yellow", "/ˈjɛloʊ/ («iélou»)", "amarillo"),
+        VocabItem("⬛", "black", "/blæk/ («blak»)", "negro"),
+        VocabItem("⬜", "white", "/waɪt/ («uáit»)", "blanco"),
+        VocabItem("🟧", "orange color", "/ˈɒrɪndʒ/ («óranch»)", "color naranja"),
+        VocabItem("🟪", "purple", "/ˈpɜːrpəl/ («pérpol»)", "morado"),
+        VocabItem("🟫", "brown", "/braʊn/ («bráun»)", "café (color)"),
+        VocabItem("💗", "pink", "/pɪŋk/ («pink»)", "rosa"),
+
+        // --- Formas ---
+        VocabItem("⭕", "circle", "/ˈsɜːrkəl/ («sérkol»)", "círculo"),
+        VocabItem("🔺", "triangle", "/ˈtraɪæŋgəl/ («tráiangol»)", "triángulo"),
+        VocabItem("⭐", "star", "/stɑːr/ («estár»)", "estrella"),
+        VocabItem("❤️", "heart", "/hɑːrt/ («jart»)", "corazón"),
+        VocabItem("🔶", "diamond", "/ˈdaɪəmənd/ («dáiamond»)", "diamante"),
+        VocabItem("", "square", "/skwɛr/ («eskuér»)", "cuadrado"),
+
+        // --- Familia ---
+        VocabItem("👩", "mom", "/mɑm/ («mam»)", "mamá"),
+        VocabItem("👨", "dad", "/dæd/ («dad»)", "papá"),
+        VocabItem("👦", "brother", "/ˈbrʌðər/ («bróder»)", "hermano"),
+        VocabItem("👧", "sister", "/ˈsɪstər/ («síster»)", "hermana"),
+        VocabItem("👶", "baby", "/ˈbeɪbi/ («béibi»)", "bebé"),
+        VocabItem("👵", "grandma", "/ˈgrænmɑː/ («gránma»)", "abuela"),
+        VocabItem("👴", "grandpa", "/ˈgrænpɑː/ («gránpa»)", "abuelo"),
+        VocabItem("👨‍👩‍👧‍👦", "family", "/ˈfæməli/ («fámili»)", "familia"),
+
+        // --- Cuerpo (además de la cara) ---
+        VocabItem("🦶", "foot", "/fʊt/ («fut»)", "pie"),
+        VocabItem("🦵", "leg", "/lɛg/ («leg»)", "pierna"),
+        VocabItem("🦷", "tooth", "/tuːθ/ («tuz»)", "diente"),
+        VocabItem("💪", "arm", "/ɑːrm/ («arm»)", "brazo"),
+        VocabItem("", "hair", "/hɛr/ («jer»)", "cabello"),
+        VocabItem("", "head", "/hɛd/ («jed»)", "cabeza"),
+
+        // --- Ropa ---
+        VocabItem("👕", "shirt", "/ʃɜːrt/ («shert»)", "camisa"),
+        VocabItem("👖", "pants", "/pænts/ («pants»)", "pantalón"),
+        VocabItem("👗", "dress", "/drɛs/ («dres»)", "vestido"),
+        VocabItem("👟", "shoes", "/ʃuːz/ («shus»)", "zapatos"),
+        VocabItem("🧢", "cap", "/kæp/ («kap»)", "gorra"),
+        VocabItem("🧦", "socks", "/sɒks/ («soks»)", "calcetines"),
+        VocabItem("🧥", "jacket", "/ˈdʒækɪt/ («cháket»)", "chaqueta"),
+        VocabItem("👓", "glasses", "/ˈglæsɪz/ («gláses»)", "lentes"),
+        VocabItem("🧣", "scarf", "/skɑːrf/ («eskarf»)", "bufanda"),
+        VocabItem("🧤", "gloves", "/glʌvz/ («glavs»)", "guantes"),
+
+        // --- Casa, muebles, cocina, baño ---
+        VocabItem("🛏️", "bed", "/bɛd/ («bed»)", "cama"),
+        VocabItem("🪑", "chair", "/tʃɛr/ («cher»)", "silla"),
+        VocabItem("🚪", "door", "/dɔːr/ («dor»)", "puerta"),
+        VocabItem("🪟", "window", "/ˈwɪndoʊ/ («uíndou»)", "ventana"),
+        VocabItem("🔑", "key", "/kiː/ («ki»)", "llave"),
+        VocabItem("💡", "lamp", "/læmp/ («lamp»)", "lámpara"),
+        VocabItem("🛋️", "sofa", "/ˈsoʊfə/ («sófa»)", "sofá"),
+        VocabItem("🛁", "bathtub", "/ˈbæθtʌb/ («báztab»)", "tina"),
+        VocabItem("🪥", "toothbrush", "/ˈtuːθbrʌʃ/ («tuzbrash»)", "cepillo de dientes"),
+        VocabItem("🧼", "soap", "/soʊp/ («sóup»)", "jabón"),
+        VocabItem("🪞", "mirror", "/ˈmɪrər/ («mírror»)", "espejo"),
+        VocabItem("", "table", "/ˈteɪbəl/ («téibol»)", "mesa"),
+
+        // --- Escuela ---
+        VocabItem("✏️", "pencil", "/ˈpɛnsəl/ («pénsol»)", "lápiz"),
+        VocabItem("✂️", "scissors", "/ˈsɪzərz/ («sísors»)", "tijeras"),
+        VocabItem("🖍️", "crayon", "/ˈkreɪɒn/ («kréion»)", "crayola"),
+        VocabItem("📏", "ruler", "/ˈruːlər/ («rúler»)", "regla"),
+        VocabItem("🎒", "backpack", "/ˈbækpæk/ («bákpak»)", "mochila"),
+        VocabItem("📓", "notebook", "/ˈnoʊtbʊk/ («nóutbuk»)", "cuaderno"),
+
+        // --- Transporte ---
+        VocabItem("🚗", "car", "/kɑːr/ («kar»)", "carro"),
+        VocabItem("🚌", "bus", "/bʌs/ («bas»)", "autobús"),
+        VocabItem("🚂", "train", "/treɪn/ («tréin»)", "tren"),
+        VocabItem("✈️", "airplane", "/ˈɛərpleɪn/ («érplein»)", "avión"),
+        VocabItem("⛵", "boat", "/boʊt/ («bóut»)", "barco"),
+        VocabItem("🚲", "bike", "/baɪk/ («báik»)", "bicicleta"),
+        VocabItem("🏍️", "motorcycle", "/ˈmoʊtərsaɪkəl/ («móutorsaikol»)", "motocicleta"),
+        VocabItem("🚚", "truck", "/trʌk/ («trak»)", "camión"),
+        VocabItem("🚁", "helicopter", "/ˈhɛlɪkɒptər/ («jélikopter»)", "helicóptero"),
+        VocabItem("🚀", "rocket", "/ˈrɒkɪt/ («róket»)", "cohete"),
+
+        // --- Naturaleza y clima ---
+        VocabItem("🌳", "tree", "/triː/ («tri»)", "árbol"),
+        VocabItem("🌸", "flower", "/ˈflaʊər/ («fláuer»)", "flor"),
+        VocabItem("🍃", "leaf", "/liːf/ («lif»)", "hoja"),
+        VocabItem("⛰️", "mountain", "/ˈmaʊntən/ («máunten»)", "montaña"),
+        VocabItem("🌈", "rainbow", "/ˈreɪnboʊ/ («réinbou»)", "arcoíris"),
+        VocabItem("🌧️", "rain", "/reɪn/ («réin»)", "lluvia"),
+        VocabItem("❄️", "snow", "/snoʊ/ («snóu»)", "nieve"),
+        VocabItem("☁️", "cloud", "/klaʊd/ («cláud»)", "nube"),
+        VocabItem("🔥", "fire", "/ˈfaɪər/ («fáier»)", "fuego"),
+        VocabItem("🌊", "sea", "/siː/ («si»)", "mar"),
+
+        // --- Emociones ---
+        VocabItem("😊", "happy", "/ˈhæpi/ («jápi»)", "feliz"),
+        VocabItem("😢", "sad", "/sæd/ («sad»)", "triste"),
+        VocabItem("😠", "angry", "/ˈæŋgri/ («ángri»)", "enojado"),
+        VocabItem("😲", "surprised", "/sərˈpraɪzd/ («serpráisd»)", "sorprendido"),
+        VocabItem("😱", "scared", "/skɛrd/ («eskérd»)", "asustado"),
+        VocabItem("😴", "sleepy", "/ˈsliːpi/ («slípi»)", "con sueño"),
+
+        // --- Números en palabra (1-10) ---
+        VocabItem("1️⃣", "one", "/wʌn/ («uán»)", "uno"),
+        VocabItem("2️⃣", "two", "/tuː/ («tu»)", "dos"),
+        VocabItem("3️⃣", "three", "/θriː/ («zri»)", "tres"),
+        VocabItem("4️⃣", "four", "/fɔːr/ («for»)", "cuatro"),
+        VocabItem("5️⃣", "five", "/faɪv/ («fáiv»)", "cinco"),
+        VocabItem("6️⃣", "six", "/sɪks/ («siks»)", "seis"),
+        VocabItem("7️⃣", "seven", "/ˈsɛvən/ («séven»)", "siete"),
+        VocabItem("8️⃣", "eight", "/eɪt/ («éit»)", "ocho"),
+        VocabItem("9️⃣", "nine", "/naɪn/ («náin»)", "nueve"),
+        VocabItem("🔟", "ten", "/tɛn/ («ten»)", "diez"),
+
+        // --- Profesiones ---
+        VocabItem("🧑‍⚕️", "doctor", "/ˈdɒktər/ («dóktor»)", "doctor(a)"),
+        VocabItem("🧑‍🏫", "teacher", "/ˈtiːtʃər/ («tícher»)", "maestro(a)"),
+        VocabItem("🧑‍🚒", "firefighter", "/ˈfaɪərfaɪtər/ («fáierfaiter»)", "bombero"),
+        VocabItem("👮", "police officer", "/pəˈliːs/ («polís»)", "policía"),
+        VocabItem("🧑‍🍳", "chef", "/ʃɛf/ («shef»)", "cocinero(a)"),
+        VocabItem("🧑‍🌾", "farmer", "/ˈfɑːrmər/ («fármer»)", "granjero(a)"),
+        VocabItem("🧑‍🚀", "astronaut", "/ˈæstrənɔːt/ («ástronot»)", "astronauta"),
+
+        // --- Música ---
+        VocabItem("🎸", "guitar", "/gɪˈtɑːr/ («guitár»)", "guitarra"),
+        VocabItem("🥁", "drum", "/drʌm/ («dram»)", "tambor"),
+        VocabItem("🎹", "piano", "/piˈænoʊ/ («piáno»)", "piano"),
+        VocabItem("🎤", "microphone", "/ˈmaɪkrəfoʊn/ («máikrofon»)", "micrófono"),
+        VocabItem("🎺", "trumpet", "/ˈtrʌmpɪt/ («trámpet»)", "trompeta"),
+
+        // --- Deportes y juguetes ---
+        VocabItem("🏀", "basketball", "/ˈbæskɪtbɔːl/ («básketbol»)", "básquetbol"),
+        VocabItem("🎾", "tennis", "/ˈtɛnɪs/ («ténis»)", "tenis"),
+        VocabItem("🪁", "kite", "/kaɪt/ («káit»)", "papalote"),
+        VocabItem("🧱", "blocks", "/blɒks/ («bloks»)", "bloques"),
+        VocabItem("🎈", "balloon", "/bəˈluːn/ («balún»)", "globo"),
+
+        // --- Electrónica ---
+        VocabItem("📺", "television", "/ˈtɛlɪvɪʒən/ («télevisión»)", "televisión"),
+        VocabItem("📱", "phone", "/foʊn/ («fóun»)", "teléfono"),
+        VocabItem("💻", "computer", "/kəmˈpjuːtər/ («kompiúter»)", "computadora"),
+        VocabItem("📷", "camera", "/ˈkæmərə/ («kámera»)", "cámara")
+    )
+
     // ---------- Ejemplos resueltos para el botón de ayuda ----------
     // Ejemplos para OPERACIONES DIRECTAS (mismo formato "¿Cuánto es A+B?").
     private val EX_ADD_DIRECT = WorkedExample(
@@ -166,7 +413,10 @@ object ChallengeEngine {
     }
 
     // --- Preescolar / 1º: contar objetos con dibujos ---
-    private val countEmojis = listOf("🍎", "⭐", "🐶", "🎈", "🚗", "🌸", "⚽", "🐟")
+    // Reutiliza el vocabulario de inglés como pozo de objetos para contar: mucha
+    // más variedad (antes 8 objetos fijos) y refuerza el mismo vocabulario que
+    // el niño practica en inglés (ver starterVocab más arriba).
+    private val countEmojis = starterVocab.mapNotNull { it.emoji.takeIf(String::isNotBlank) }.distinct()
 
     private val EX_COUNT = WorkedExample(
         "Ejemplo: contar",
@@ -798,38 +1048,460 @@ object ChallengeEngine {
         ))
     )
 
-    /** Índice de la unidad del día (rotación determinística por fecha). */
-    private fun todaysUnitIndex(): Int {
+    // ---------------- INGLÉS AVANZADO (Secundaria) ----------------
+    // Gramática de nivel intermedio, más allá de las 8 unidades básicas de
+    // arriba (que Primaria y Secundaria comparten). Secundaria rota entre
+    // AMBOS bancos (básico + avanzado); Primaria se queda solo en el básico.
+    private val englishAdvancedUnits = listOf(
+        EnglishUnit("Comparativos y superlativos", listOf(
+            EnglishExercise("Elige la forma correcta.", "This book is ______ than that one.",
+                listOf("more interesting", "interesting", "most interesting", "interestinger"), "more interesting",
+                "Adjetivos largos (interesting) usan 'more' + adjetivo para comparar.", "more = /mɔːr/ («mor»)"),
+            EnglishExercise("Elige la forma correcta.", "She is the ______ student in the class.",
+                listOf("tallest", "taller", "more tall", "tall"), "tallest",
+                "Adjetivo corto de 1 sílaba: se agrega '-est' para el superlativo.", "tallest = /ˈtɔːlɪst/ («tólest»)"),
+            EnglishExercise("Elige la forma correcta.", "This is the ______ mountain in Mexico.",
+                listOf("highest", "higher", "more high", "high"), "highest",
+                "Superlativo de 'high': se agrega '-est'.", "highest = /ˈhaɪɪst/ («jáiest»)"),
+            EnglishExercise("Elige la forma correcta.", "My brother is ______ than me.",
+                listOf("younger", "young", "more young", "youngest"), "younger",
+                "Comparativo de 'young': se agrega '-er'.", "younger = /ˈjʌŋgər/ («iánguer»)"),
+            EnglishExercise("Elige la forma correcta.", "That was the ______ movie I've ever seen!",
+                listOf("best", "goodest", "more good", "gooder"), "best",
+                "'good' es irregular: best/better, no lleva '-est'.", "best = /bɛst/ («best»)"),
+            EnglishExercise("Elige la forma correcta.", "Winter is ______ than summer.",
+                listOf("colder", "cold", "more cold", "coldest"), "colder",
+                "Comparativo de 'cold': se agrega '-er'.", "colder = /ˈkoʊldər/ («kóulder»)"),
+            EnglishExercise("Elige la forma correcta.", "This is the ______ day of my life.",
+                listOf("worst", "badest", "more bad", "worse"), "worst",
+                "'bad' es irregular: worst es el superlativo (worse es el comparativo).", "worst = /wɜːrst/ («uerst»)"),
+            EnglishExercise("Elige la forma correcta.", "He runs ______ than his friend.",
+                listOf("faster", "fast", "more fast", "fastest"), "faster",
+                "Comparativo de 'fast': se agrega '-er'.", "faster = /ˈfæstər/ («fáster»)"),
+            EnglishExercise("Elige la forma correcta.", "This exercise is ______ than the last one.",
+                listOf("more difficult", "difficulter", "difficult", "most difficult"), "more difficult",
+                "Adjetivo largo: se usa 'more' + adjetivo.", "difficult = /ˈdɪfɪkəlt/ («dífikolt»)"),
+            EnglishExercise("Elige la forma correcta.", "She is ______ than her sister.",
+                listOf("prettier", "pretty", "more pretty", "prettiest"), "prettier",
+                "Adjetivos terminados en '-y' cambian a '-ier'.", "prettier = /ˈprɪtiər/ («príter»)"),
+            EnglishExercise("Elige la forma correcta.", "This is the ______ city I have visited.",
+                listOf("biggest", "bigest", "more big", "bigger"), "biggest",
+                "Se dobla la consonante final: big → biggest.", "biggest = /ˈbɪgɪst/ («bíguest»)"),
+            EnglishExercise("¿Cuál oración es correcta?", "Choose the correct sentence.",
+                listOf("She is taller than me.", "She is more taller than me.", "She is tallest than me.", "She is more tall than me."),
+                "She is taller than me.", "No se combina 'more' con '-er' (no digas 'more taller').", "taller = /ˈtɔːlər/ («tóler»)"),
+            EnglishExercise("Elige la forma correcta.", "Of the three brothers, John is the ______.",
+                listOf("funniest", "funnier", "more funny", "funny"), "funniest",
+                "'-y' final cambia a '-iest' en el superlativo.", "funniest = /ˈfʌniɪst/ («fániest»)"),
+            EnglishExercise("Elige la forma correcta.", "This year's exam was ______ than last year's.",
+                listOf("easier", "easyer", "more easy", "easiest"), "easier",
+                "'-y' final cambia a '-ier': easy → easier.", "easier = /ˈiːziər/ («ísier»)"),
+            EnglishExercise("Elige la forma correcta.", "He is the ______ person I know.",
+                listOf("kindest", "kinder", "more kind", "kindly"), "kindest",
+                "Adjetivo corto: se agrega '-est' para el superlativo.", "kindest = /ˈkaɪndɪst/ («káindest»)")
+        )),
+
+        EnglishUnit("Verbos modales", listOf(
+            EnglishExercise("Elige el modal correcto (obligación).", "You ______ wear a seatbelt in the car.",
+                listOf("must", "can", "might", "would"), "must",
+                "'must' expresa obligación/regla importante.", "must = /mʌst/ («mast»)"),
+            EnglishExercise("Elige el modal correcto (permiso formal).", "______ I open the window?",
+                listOf("May", "Must", "Should", "Would"), "May",
+                "'May' se usa para pedir permiso de forma educada.", "may = /meɪ/ («méi»)"),
+            EnglishExercise("Elige el modal correcto (habilidad).", "She ______ speak three languages.",
+                listOf("can", "must", "should", "might"), "can",
+                "'can' expresa habilidad/capacidad.", "can = /kæn/ («kan»)"),
+            EnglishExercise("Elige el modal correcto (prohibición).", "You ______ smoke here, it's not allowed.",
+                listOf("must not", "don't have to", "might not", "should"), "must not",
+                "'must not' expresa prohibición.", "must not = /mʌst nɒt/ («mast nat»)"),
+            EnglishExercise("Elige el modal correcto (necesidad).", "We ______ finish the homework by Friday.",
+                listOf("have to", "might", "would", "may"), "have to",
+                "'have to' expresa una necesidad externa.", "have to = /hæv tuː/ («jav tu»)"),
+            EnglishExercise("Elige el modal correcto (consejo).", "You ______ see a doctor if you feel sick.",
+                listOf("should", "must", "can", "will"), "should",
+                "'should' se usa para dar un consejo.", "should = /ʃʊd/ («shud»)"),
+            EnglishExercise("Elige el modal correcto (posibilidad).", "It ______ rain later, the sky is cloudy.",
+                listOf("might", "must", "can", "should"), "might",
+                "'might' expresa una posibilidad, no certeza.", "might = /maɪt/ («máit»)"),
+            EnglishExercise("Elige el modal correcto (petición educada).", "______ you help me with this bag?",
+                listOf("Could", "Must", "Should", "May"), "Could",
+                "'Could' se usa para pedir ayuda de forma educada.", "could = /kʊd/ («kud»)"),
+            EnglishExercise("Elige el modal correcto (regla).", "Students ______ arrive on time.",
+                listOf("must", "might", "could", "would"), "must",
+                "'must' expresa una regla obligatoria.", "must = /mʌst/ («mast»)"),
+            EnglishExercise("Elige el modal correcto (deducción negativa).", "He ______ be at home; his car isn't there.",
+                listOf("can't", "must", "should", "may"), "can't",
+                "'can't' expresa que algo es casi imposible/improbable.", "can't = /kænt/ («kant»)"),
+            EnglishExercise("Elige el modal correcto (consejo).", "You ______ eat vegetables, they're good for you.",
+                listOf("should", "must not", "can't", "might"), "should",
+                "'should' es un consejo, no una obligación estricta.", "should = /ʃʊd/ («shud»)"),
+            EnglishExercise("Elige el modal correcto (no es necesario).", "We ______ wait; the bus is coming.",
+                listOf("don't have to", "must not", "shouldn't", "can't"), "don't have to",
+                "'don't have to' significa que no es necesario.", "don't have to = /doʊnt hæv tuː/ («dont jav tu»)"),
+            EnglishExercise("Elige el modal correcto (permiso informal).", "______ I borrow your pencil?",
+                listOf("Can", "Must", "Should", "Would"), "Can",
+                "'Can' es informal para pedir permiso.", "can = /kæn/ («kan»)"),
+            EnglishExercise("¿Cuál oración expresa OBLIGACIÓN?", "Choose the sentence with obligation.",
+                listOf("You must wear a helmet.", "You might wear a helmet.", "You could wear a helmet.", "You may wear a helmet."),
+                "You must wear a helmet.", "'must' es el modal de obligación.", "must = /mʌst/ («mast»)"),
+            EnglishExercise("Elige el modal correcto (duda fuerte).", "It ______ be true, I don't believe it.",
+                listOf("can't", "must", "should", "have to"), "can't",
+                "'can't be true' = es casi imposible que sea verdad.", "can't = /kænt/ («kant»)")
+        )),
+
+        EnglishUnit("Primer condicional", listOf(
+            EnglishExercise("Completa el primer condicional.", "If it rains, we ______ stay home.",
+                listOf("will stay", "stay", "stayed", "would stay"), "will stay",
+                "Primer condicional: If + presente, will + verbo.", "will = /wɪl/ («uíl»)"),
+            EnglishExercise("Completa el primer condicional.", "If you study hard, you ______ pass the exam.",
+                listOf("will pass", "pass", "passed", "would pass"), "will pass",
+                "Estructura: If + presente, will + verbo base.", "pass = /pæs/ («pas»)"),
+            EnglishExercise("Completa el primer condicional.", "She will be happy if you ______ her.",
+                listOf("call", "will call", "called", "calling"), "call",
+                "Después de 'if' se usa presente simple, no 'will'.", "call = /kɔːl/ («kol»)"),
+            EnglishExercise("Completa el primer condicional.", "If I ______ time, I will visit you.",
+                listOf("have", "will have", "had", "having"), "have",
+                "Después de 'if' va presente simple: have.", "have = /hæv/ («jav»)"),
+            EnglishExercise("Completa el primer condicional.", "They will miss the bus if they ______ up now.",
+                listOf("don't get", "won't get", "didn't get", "not get"), "don't get",
+                "Negativo en presente simple: don't + verbo.", "get = /gɛt/ («guet»)"),
+            EnglishExercise("Completa el primer condicional.", "If we leave now, we ______ arrive on time.",
+                listOf("will arrive", "arrive", "arrived", "would arrive"), "will arrive",
+                "Resultado con 'will' + verbo base.", "arrive = /əˈraɪv/ («arráiv»)"),
+            EnglishExercise("Completa el primer condicional.", "You will get wet if you ______ an umbrella.",
+                listOf("don't take", "won't take", "didn't take", "not take"), "don't take",
+                "Presente negativo después de 'if': don't + verbo.", "take = /teɪk/ («téik»)"),
+            EnglishExercise("Completa el primer condicional.", "If he practices every day, he ______ improve.",
+                listOf("will", "practices", "practiced", "would"), "will",
+                "Resultado con 'will' + verbo base (improve).", "will = /wɪl/ («uíl»)"),
+            EnglishExercise("Completa el primer condicional.", "I will call you if I ______ any news.",
+                listOf("get", "will get", "got", "getting"), "get",
+                "Presente simple después de 'if'.", "get = /gɛt/ («guet»)"),
+            EnglishExercise("Completa el primer condicional.", "If the weather is nice, we ______ go to the beach.",
+                listOf("will", "go", "went", "would"), "will",
+                "Resultado con 'will' + verbo base (go).", "will = /wɪl/ («uíl»)"),
+            EnglishExercise("Completa el primer condicional.", "She won't come if it ______ too cold.",
+                listOf("is", "will be", "was", "being"), "is",
+                "Presente simple después de 'if', aunque el resultado sea negativo.", "is = /ɪz/ («is»)"),
+            EnglishExercise("Completa el primer condicional.", "If you don't eat, you ______ hungry later.",
+                listOf("will be", "are", "were", "being"), "will be",
+                "Resultado con 'will be'.", "will be = /wɪl biː/ («uíl bi»)"),
+            EnglishExercise("Elige la oración correcta.", "Choose the correct first conditional sentence.",
+                listOf("If it snows, we will build a snowman.", "If it will snow, we build a snowman.",
+                    "If it snows, we built a snowman.", "If it snowed, we will build a snowman."),
+                "If it snows, we will build a snowman.", "If + presente, will + verbo: esa es la fórmula correcta.", "snow = /snoʊ/ («snóu»)"),
+            EnglishExercise("Completa el primer condicional.", "We will be late if the train ______.",
+                listOf("is delayed", "delays", "delayed", "will delay"), "is delayed",
+                "Presente simple (pasivo) después de 'if'.", "delayed = /dɪˈleɪd/ («diléid»)"),
+            EnglishExercise("Completa el primer condicional.", "If you ______ me, I will explain everything.",
+                listOf("ask", "will ask", "asked", "asking"), "ask",
+                "Presente simple después de 'if'.", "ask = /æsk/ («ask»)")
+        )),
+
+        EnglishUnit("Verbos frasales", listOf(
+            EnglishExercise("Completa la partícula correcta.", "Please turn ______ the TV, it's too loud.",
+                listOf("down", "up", "off", "on"), "down",
+                "'turn down' = bajar el volumen.", "turn down = /tɜːrn daʊn/ («tern dáun»)"),
+            EnglishExercise("Completa la partícula correcta.", "I need to get ______ early tomorrow.",
+                listOf("up", "down", "off", "on"), "up",
+                "'get up' = levantarse.", "get up = /gɛt ʌp/ («guet ap»)"),
+            EnglishExercise("Completa la partícula correcta.", "Don't give ______! We can solve this problem.",
+                listOf("up", "down", "off", "away"), "up",
+                "'give up' = darse por vencido.", "give up = /gɪv ʌp/ («guiv ap»)"),
+            EnglishExercise("Completa la partícula correcta.", "She is looking ______ her keys.",
+                listOf("for", "at", "up", "over"), "for",
+                "'look for' = buscar algo.", "look for = /lʊk fɔːr/ («luk for»)"),
+            EnglishExercise("Completa la partícula correcta.", "Please take ______ your shoes before entering.",
+                listOf("off", "out", "up", "down"), "off",
+                "'take off' = quitarse (ropa/zapatos).", "take off = /teɪk ɒf/ («téik of»)"),
+            EnglishExercise("Completa la partícula correcta.", "Can you turn ______ the lights? It's dark.",
+                listOf("on", "off", "up", "down"), "on",
+                "'turn on' = encender.", "turn on = /tɜːrn ɒn/ («tern on»)"),
+            EnglishExercise("Completa la partícula correcta.", "He decided to give ______ smoking.",
+                listOf("up", "out", "in", "away"), "up",
+                "'give up (doing something)' = dejar un hábito.", "give up = /gɪv ʌp/ («guiv ap»)"),
+            EnglishExercise("Completa la partícula correcta.", "I'm looking ______ to the weekend.",
+                listOf("forward", "for", "at", "up"), "forward",
+                "'look forward to' = esperar algo con ganas.", "forward = /ˈfɔːrwərd/ («fórward»)"),
+            EnglishExercise("Completa la partícula correcta.", "The plane will take ______ in ten minutes.",
+                listOf("off", "out", "up", "down"), "off",
+                "'take off' (de un avión) = despegar.", "take off = /teɪk ɒf/ («téik of»)"),
+            EnglishExercise("Completa la partícula correcta.", "I need to look ______ this word in the dictionary.",
+                listOf("up", "for", "at", "over"), "up",
+                "'look up' = buscar información (en diccionario/internet).", "look up = /lʊk ʌp/ («luk ap»)"),
+            EnglishExercise("Completa la partícula correcta.", "Let's turn ______ the lights, it's getting dark.",
+                listOf("on", "off", "up", "down"), "on",
+                "'turn on' = encender.", "turn on = /tɜːrn ɒn/ («tern on»)"),
+            EnglishExercise("Completa la partícula correcta.", "Please put ______ your books, class is starting.",
+                listOf("away", "off", "out", "down"), "away",
+                "'put away' = guardar algo en su lugar.", "put away = /pʊt əˈweɪ/ («put auéi»)"),
+            EnglishExercise("Completa la partícula correcta.", "She grew ______ in Mexico City.",
+                listOf("up", "off", "out", "over"), "up",
+                "'grow up' = crecer (de niño a adulto).", "grow up = /groʊ ʌp/ («gróu ap»)"),
+            EnglishExercise("Completa la partícula correcta.", "They ran ______ of time during the test.",
+                listOf("out", "off", "over", "up"), "out",
+                "'run out of' = quedarse sin algo.", "run out = /rʌn aʊt/ («ran áut»)"),
+            EnglishExercise("Completa la partícula correcta.", "Please hand ______ your homework by Friday.",
+                listOf("in", "out", "up", "over"), "in",
+                "'hand in' = entregar (tarea/trabajo).", "hand in = /hænd ɪn/ («jand in»)")
+        )),
+
+        EnglishUnit("Voz pasiva básica", listOf(
+            EnglishExercise("Completa con la voz pasiva correcta.", "English ______ in many countries.",
+                listOf("is spoken", "speaks", "spoke", "is speak"), "is spoken",
+                "Voz pasiva presente: is/are + participio.", "spoken = /ˈspoʊkən/ («spóuken»)"),
+            EnglishExercise("Completa con la voz pasiva correcta.", "The cake ______ by my mom yesterday.",
+                listOf("was baked", "baked", "is baked", "bakes"), "was baked",
+                "Voz pasiva pasado: was/were + participio.", "baked = /beɪkt/ («béikt»)"),
+            EnglishExercise("Completa con la voz pasiva correcta.", "This bridge ______ in 1990.",
+                listOf("was built", "built", "is built", "builds"), "was built",
+                "Voz pasiva pasado: was + participio (build → built).", "built = /bɪlt/ («bilt»)"),
+            EnglishExercise("Completa con la voz pasiva correcta.", "The homework ______ every day.",
+                listOf("is checked", "checks", "checked", "check"), "is checked",
+                "Voz pasiva presente: is + participio.", "checked = /tʃɛkt/ («chekt»)"),
+            EnglishExercise("Completa con la voz pasiva correcta.", "The window ______ by the wind.",
+                listOf("was broken", "broke", "breaks", "is break"), "was broken",
+                "Voz pasiva pasado: was + participio (break → broken).", "broken = /ˈbroʊkən/ («bróuken»)"),
+            EnglishExercise("Completa con la voz pasiva correcta.", "Rice ______ in many Asian countries.",
+                listOf("is grown", "grows", "grew", "is grow"), "is grown",
+                "Voz pasiva presente: is + participio (grow → grown).", "grown = /groʊn/ («gróun»)"),
+            EnglishExercise("Completa con la voz pasiva correcta.", "The movie ______ by millions of people.",
+                listOf("was watched", "watched", "watch", "is watch"), "was watched",
+                "Voz pasiva pasado: was + participio.", "watched = /wɒtʃt/ («uótcht»)"),
+            EnglishExercise("Completa con la voz pasiva correcta.", "New phones ______ every year.",
+                listOf("are released", "release", "released", "releasing"), "are released",
+                "Voz pasiva presente plural: are + participio.", "released = /rɪˈliːst/ («rilíst»)"),
+            EnglishExercise("Completa con la voz pasiva correcta.", "The song ______ by a famous singer.",
+                listOf("was sung", "sang", "sings", "is sing"), "was sung",
+                "Voz pasiva pasado: was + participio (sing → sung).", "sung = /sʌŋ/ («san»)"),
+            EnglishExercise("Completa con la voz pasiva correcta.", "The park ______ every morning.",
+                listOf("is cleaned", "cleans", "cleaned", "clean"), "is cleaned",
+                "Voz pasiva presente: is + participio.", "cleaned = /kliːnd/ («klind»)"),
+            EnglishExercise("Completa con la voz pasiva correcta.", "The book ______ into five languages.",
+                listOf("was translated", "translated", "translates", "is translate"), "was translated",
+                "Voz pasiva pasado: was + participio.", "translated = /trænzˈleɪtɪd/ («transléitid»)"),
+            EnglishExercise("Completa con la voz pasiva correcta.", "Coffee ______ in Colombia.",
+                listOf("is grown", "grows", "grew", "growing"), "is grown",
+                "Voz pasiva presente: is + participio.", "grown = /groʊn/ («gróun»)"),
+            EnglishExercise("Completa con la voz pasiva correcta.", "The email ______ yesterday.",
+                listOf("was sent", "sent", "sends", "is send"), "was sent",
+                "Voz pasiva pasado: was + participio (send → sent).", "sent = /sɛnt/ («sent»)"),
+            EnglishExercise("Completa con la voz pasiva correcta.", "This song ______ by everyone at the party.",
+                listOf("was loved", "loved", "loves", "is love"), "was loved",
+                "Voz pasiva pasado: was + participio.", "loved = /lʌvd/ («lavd»)"),
+            EnglishExercise("Completa con la voz pasiva correcta.", "The store ______ at 9 pm.",
+                listOf("is closed", "closes", "closed", "close"), "is closed",
+                "Voz pasiva presente: is + participio.", "closed = /kloʊzd/ («klóuzd»)")
+        )),
+
+        EnglishUnit("Preguntas con Wh- y do/does/did", listOf(
+            EnglishExercise("Elige la palabra Wh- correcta.", "______ do you live?",
+                listOf("Where", "What", "Who", "Why"), "Where",
+                "'Where' pregunta por un lugar.", "where = /wɛr/ («uér»)"),
+            EnglishExercise("Elige la palabra Wh- correcta.", "______ does she work?",
+                listOf("Where", "When", "Who", "How"), "Where",
+                "'Where' pregunta por el lugar de trabajo.", "where = /wɛr/ («uér»)"),
+            EnglishExercise("Elige la palabra Wh- correcta.", "______ did you go yesterday?",
+                listOf("Where", "What", "Why", "Whose"), "Where",
+                "'Where' pregunta por un lugar (en pasado con 'did').", "where = /wɛr/ («uér»)"),
+            EnglishExercise("Elige la palabra Wh- correcta.", "______ is your favorite color?",
+                listOf("What", "Who", "Where", "When"), "What",
+                "'What' pregunta por una cosa/información.", "what = /wʌt/ («uát»)"),
+            EnglishExercise("Elige la palabra Wh- correcta.", "______ do you usually wake up?",
+                listOf("When", "Where", "Who", "Whose"), "When",
+                "'When' pregunta por el momento/hora.", "when = /wɛn/ («uén»)"),
+            EnglishExercise("Elige la palabra Wh- correcta.", "______ made this cake? (pregunta sobre el sujeto)",
+                listOf("Who", "What", "Where", "Whose"), "Who",
+                "'Who' pregunta por la persona que hizo la acción (sujeto).", "who = /huː/ («ju»)"),
+            EnglishExercise("Elige la palabra Wh- correcta.", "______ does he like pizza?",
+                listOf("Why", "Where", "When", "Who"), "Why",
+                "'Why' pregunta por la razón.", "why = /waɪ/ («uái»)"),
+            EnglishExercise("Elige la palabra Wh- correcta.", "How ______ brothers do you have?",
+                listOf("many", "much", "old", "long"), "many",
+                "'How many' se usa con sustantivos contables (brothers).", "many = /ˈmɛni/ («méni»)"),
+            EnglishExercise("Elige la palabra Wh- correcta.", "How ______ are you?",
+                listOf("old", "many", "much", "long"), "old",
+                "'How old' pregunta por la edad.", "old = /oʊld/ («óuld»)"),
+            EnglishExercise("Elige la palabra Wh- correcta.", "______ did you learn English?",
+                listOf("How", "What", "Whose", "Why"), "How",
+                "'How' pregunta por el método/manera.", "how = /haʊ/ («jáu»)"),
+            EnglishExercise("Elige la palabra Wh- correcta.", "______ is coming to the party?",
+                listOf("Who", "What", "Where", "Whose"), "Who",
+                "'Who' pregunta por la persona (sujeto).", "who = /huː/ («ju»)"),
+            EnglishExercise("Elige la palabra Wh- correcta.", "______ does the movie start?",
+                listOf("When", "Where", "Who", "Why"), "When",
+                "'When' pregunta por el momento.", "when = /wɛn/ («uén»)"),
+            EnglishExercise("Elige la palabra Wh- correcta.", "______ book is this?",
+                listOf("Whose", "Who", "What", "Where"), "Whose",
+                "'Whose' pregunta por el dueño de algo.", "whose = /huːz/ («jus»)"),
+            EnglishExercise("Elige la palabra Wh- correcta.", "______ did you do that?",
+                listOf("Why", "How", "When", "Where"), "Why",
+                "'Why' pregunta por la razón.", "why = /waɪ/ («uái»)"),
+            EnglishExercise("Elige la palabra Wh- correcta.", "______ are you going?",
+                listOf("Where", "What", "Who", "Whose"), "Where",
+                "'Where' pregunta por el destino.", "where = /wɛr/ («uér»)")
+        )),
+
+        EnglishUnit("Estilo indirecto (reported speech)", listOf(
+            EnglishExercise("Cambia al estilo indirecto.", "He said, 'I like pizza.' → He said that he ______ pizza.",
+                listOf("liked", "likes", "like", "liking"), "liked",
+                "El presente ('like') cambia a pasado ('liked') en estilo indirecto.", "liked = /laɪkt/ («láikt»)"),
+            EnglishExercise("Cambia al estilo indirecto.", "She said, 'I am happy.' → She said that she ______ happy.",
+                listOf("was", "is", "were", "be"), "was",
+                "'am/is' cambia a 'was' en estilo indirecto.", "was = /wʌz/ («uas»)"),
+            EnglishExercise("Cambia al estilo indirecto.", "They said, 'We live in Mexico.' → They said that they ______ in Mexico.",
+                listOf("lived", "live", "living", "lives"), "lived",
+                "Presente ('live') cambia a pasado ('lived').", "lived = /lɪvd/ («livd»)"),
+            EnglishExercise("Cambia al estilo indirecto.", "He said, 'I will call you.' → He said that he ______ call me.",
+                listOf("would", "will", "can", "could"), "would",
+                "'will' cambia a 'would' en estilo indirecto.", "would = /wʊd/ («wud»)"),
+            EnglishExercise("Cambia al estilo indirecto.", "She said, 'I can swim.' → She said that she ______ swim.",
+                listOf("could", "can", "would", "will"), "could",
+                "'can' cambia a 'could' en estilo indirecto.", "could = /kʊd/ («kud»)"),
+            EnglishExercise("Cambia al estilo indirecto.", "They said, 'We are studying.' → They said that they ______ studying.",
+                listOf("were", "are", "was", "be"), "were",
+                "'are' cambia a 'were' en estilo indirecto.", "were = /wɜːr/ («uer»)"),
+            EnglishExercise("Cambia al estilo indirecto.", "He said, 'I have a car.' → He said that he ______ a car.",
+                listOf("had", "has", "have", "having"), "had",
+                "'have' cambia a 'had' en estilo indirecto.", "had = /hæd/ («jad»)"),
+            EnglishExercise("Cambia al estilo indirecto.", "She said, 'I want to travel.' → She said that she ______ to travel.",
+                listOf("wanted", "want", "wants", "wanting"), "wanted",
+                "Presente ('want') cambia a pasado ('wanted').", "wanted = /ˈwɒntɪd/ («uántid»)"),
+            EnglishExercise("Cambia al estilo indirecto.", "He said, 'I don't know.' → He said that he ______ know.",
+                listOf("didn't", "doesn't", "don't", "isn't"), "didn't",
+                "'don't' cambia a 'didn't' en estilo indirecto.", "didn't = /ˈdɪdənt/ («dídent»)"),
+            EnglishExercise("Cambia al estilo indirecto.", "They said, 'We need help.' → They said that they ______ help.",
+                listOf("needed", "need", "needs", "needing"), "needed",
+                "Presente ('need') cambia a pasado ('needed').", "needed = /ˈniːdɪd/ («nídid»)"),
+            EnglishExercise("Cambia al estilo indirecto.", "She said, 'I love music.' → She said that she ______ music.",
+                listOf("loved", "loves", "love", "loving"), "loved",
+                "Presente ('love') cambia a pasado ('loved').", "loved = /lʌvd/ («lavd»)"),
+            EnglishExercise("Cambia al estilo indirecto.", "He said, 'I am learning English.' → He said that he ______ learning English.",
+                listOf("was", "is", "were", "be"), "was",
+                "'am' cambia a 'was' en estilo indirecto.", "was = /wʌz/ («uas»)"),
+            EnglishExercise("Cambia al estilo indirecto.", "They said, 'We will win.' → They said that they ______ win.",
+                listOf("would", "will", "can", "could"), "would",
+                "'will' cambia a 'would' en estilo indirecto.", "would = /wʊd/ («wud»)"),
+            EnglishExercise("Cambia al estilo indirecto.", "She said, 'I can help you.' → She said that she ______ help me.",
+                listOf("could", "can", "would", "will"), "could",
+                "'can' cambia a 'could' en estilo indirecto.", "could = /kʊd/ («kud»)"),
+            EnglishExercise("Cambia al estilo indirecto.", "He said, 'I have finished.' → He said that he ______ finished.",
+                listOf("had", "has", "have", "having"), "had",
+                "'have' cambia a 'had' en estilo indirecto.", "had = /hæd/ («jad»)")
+        )),
+
+        EnglishUnit("Conectores (because, although, however, so that)", listOf(
+            EnglishExercise("Elige el conector correcto.", "I stayed home ______ I was sick.",
+                listOf("because", "although", "however", "so that"), "because",
+                "'because' da la razón de algo.", "because = /bɪˈkɒz/ («bikós»)"),
+            EnglishExercise("Elige el conector correcto.", "She was tired ______ she worked all day.",
+                listOf("because", "although", "however", "so that"), "because",
+                "'because' explica la causa (trabajó todo el día).", "because = /bɪˈkɒz/ («bikós»)"),
+            EnglishExercise("Elige el conector correcto.", "He passed the test ______ he studied a lot.",
+                listOf("because", "although", "however", "so that"), "because",
+                "'because' explica la causa del resultado.", "because = /bɪˈkɒz/ («bikós»)"),
+            EnglishExercise("Elige el conector correcto.", "They stayed inside ______ it was cold.",
+                listOf("because", "although", "however", "so that"), "because",
+                "'because' explica la razón.", "because = /bɪˈkɒz/ («bikós»)"),
+            EnglishExercise("Elige el conector correcto.", "______ it was raining, they played outside.",
+                listOf("Although", "Because", "However", "So that"), "Although",
+                "'Although' introduce un contraste (a pesar de).", "although = /ɔːlˈðoʊ/ («oldóu»)"),
+            EnglishExercise("Elige el conector correcto.", "______ she was nervous, she gave a great speech.",
+                listOf("Although", "Because", "However", "So that"), "Although",
+                "'Although' muestra un contraste inesperado.", "although = /ɔːlˈðoʊ/ («oldóu»)"),
+            EnglishExercise("Elige el conector correcto.", "He went to work ______ he was sick.",
+                listOf("although", "because", "however", "so that"), "although",
+                "'although' muestra que fue a trabajar a pesar de estar enfermo.", "although = /ɔːlˈðoʊ/ («oldóu»)"),
+            EnglishExercise("Elige el conector correcto.", "______ the movie was long, we enjoyed it.",
+                listOf("Although", "Because", "However", "So that"), "Although",
+                "'Although' introduce el contraste (larga, pero la disfrutaron).", "although = /ɔːlˈðoʊ/ («oldóu»)"),
+            EnglishExercise("Elige el conector correcto.", "She studied hard. ______, she didn't pass.",
+                listOf("However", "Because", "Although", "So that"), "However",
+                "'However' conecta dos oraciones mostrando contraste.", "however = /haʊˈɛvər/ («jauéver»)"),
+            EnglishExercise("Elige el conector correcto.", "The food was expensive. ______, it was delicious.",
+                listOf("However", "Because", "Although", "So that"), "However",
+                "'However' introduce un contraste entre oraciones.", "however = /haʊˈɛvər/ («jauéver»)"),
+            EnglishExercise("Elige el conector correcto.", "He is very shy. ______, he loves to sing.",
+                listOf("However", "Because", "Although", "So that"), "However",
+                "'However' muestra contraste entre dos ideas.", "however = /haʊˈɛvər/ («jauéver»)"),
+            EnglishExercise("Elige el conector correcto.", "It was cold outside. ______, we decided to go for a walk.",
+                listOf("However", "Because", "Although", "So that"), "However",
+                "'However' conecta ideas contrastantes entre oraciones.", "however = /haʊˈɛvər/ («jauéver»)"),
+            EnglishExercise("Elige el conector correcto.", "He saved money ______ he could buy a car.",
+                listOf("so that", "although", "however", "because"), "so that",
+                "'so that' expresa el propósito de una acción.", "so that = /soʊ ðæt/ («sóu dat»)"),
+            EnglishExercise("Elige el conector correcto.", "She studies every day ______ she can get good grades.",
+                listOf("so that", "although", "however", "because"), "so that",
+                "'so that' expresa el propósito (para poder...).", "so that = /soʊ ðæt/ («sóu dat»)"),
+            EnglishExercise("Elige el conector correcto.", "I wrote it down ______ I wouldn't forget.",
+                listOf("so that", "although", "however", "because"), "so that",
+                "'so that' expresa el propósito de la acción.", "so that = /soʊ ðæt/ («sóu dat»)")
+        )),
+
+        EnglishUnit("Vocabulario intermedio (tecnología, medio ambiente, profesiones)", listOf(
+            EnglishExercise("¿Cómo se dice 'contaminación' en inglés?", "Air ______ is a big problem in cities.",
+                listOf("pollution", "pollute", "polluted", "polluting"), "pollution",
+                "'pollution' = contaminación.", "pollution = /pəˈluːʃən/ («polúshon»)"),
+            EnglishExercise("¿Cómo se dice 'reciclar' en inglés?", "We should ______ plastic bottles.",
+                listOf("recycle", "recycling", "recycled", "recycles"), "recycle",
+                "'recycle' = reciclar.", "recycle = /riːˈsaɪkəl/ («risáikol»)"),
+            EnglishExercise("¿Cómo se dice 'medio ambiente' en inglés?", "We must protect the ______.",
+                listOf("environment", "environments", "environmental", "environmentally"), "environment",
+                "'environment' = medio ambiente.", "environment = /ɪnˈvaɪrənmənt/ («invairenment»)"),
+            EnglishExercise("¿Cómo se dice 'calentamiento global'?", "______ is affecting the polar ice caps.",
+                listOf("Global warming", "Global warm", "Warming global", "Globally warm"), "Global warming",
+                "'global warming' = calentamiento global.", "warming = /ˈwɔːrmɪŋ/ («uórming»)"),
+            EnglishExercise("¿Cómo se dice 'aplicación' (de celular)?", "I downloaded a new ______ on my phone.",
+                listOf("app", "apply", "applied", "application form"), "app",
+                "'app' = aplicación de celular.", "app = /æp/ («ap»)"),
+            EnglishExercise("¿Cómo se dice 'contraseña'?", "Don't forget your ______.",
+                listOf("password", "pass word", "code word", "key word"), "password",
+                "'password' = contraseña.", "password = /ˈpæswɜːrd/ («pásuerd»)"),
+            EnglishExercise("¿Cómo se dice 'internet inalámbrico'?", "The hotel has free ______.",
+                listOf("wifi", "internet cable", "wire", "network cable"), "wifi",
+                "'wifi' = internet inalámbrico.", "wifi = /ˈwaɪfaɪ/ («uáifai»)"),
+            EnglishExercise("¿Cómo se dice 'ingeniero(a)'?", "My uncle is an ______.",
+                listOf("engineer", "engine", "engineering", "engineered"), "engineer",
+                "'engineer' = ingeniero(a).", "engineer = /ˌɛndʒɪˈnɪr/ («enllinír»)"),
+            EnglishExercise("¿Cómo se dice 'abogado(a)'?", "She wants to become a ______.",
+                listOf("lawyer", "law", "lawful", "lawyer's"), "lawyer",
+                "'lawyer' = abogado(a).", "lawyer = /ˈlɔɪər/ («lóier»)"),
+            EnglishExercise("¿Cómo se dice 'orgulloso(a)'?", "I am very ______ of you.",
+                listOf("proud", "pride", "proudly", "prouder"), "proud",
+                "'proud' = orgulloso(a).", "proud = /praʊd/ («práud»)"),
+            EnglishExercise("¿Cómo se dice 'preocupado(a)'?", "My mom is ______ about the exam.",
+                listOf("worried", "worry", "worrying", "worries"), "worried",
+                "'worried' = preocupado(a).", "worried = /ˈwɜːrid/ («uérid»)"),
+            EnglishExercise("¿Cómo se dice 'aburrido(a)' (sentirse)?", "I feel ______ today, there's nothing to do.",
+                listOf("bored", "boring", "bore", "bores"), "bored",
+                "'bored' = aburrido(a) (cómo se siente uno).", "bored = /bɔːrd/ («bord»)"),
+            EnglishExercise("¿Cómo se dice 'emocionado(a)'?", "We are ______ about the trip!",
+                listOf("excited", "exciting", "excite", "excites"), "excited",
+                "'excited' = emocionado(a) (cómo se siente uno).", "excited = /ɪkˈsaɪtɪd/ («eksáitid»)"),
+            EnglishExercise("¿Cómo se dice 'basura'?", "Please put the ______ in the bin.",
+                listOf("trash", "trashy", "trashed", "trashes"), "trash",
+                "'trash' = basura.", "trash = /træʃ/ («trash»)"),
+            EnglishExercise("¿Cómo se dice 'energía renovable'?", "Solar power is a type of ______ energy.",
+                listOf("renewable", "renew", "renewal", "renewing"), "renewable",
+                "'renewable' = renovable.", "renewable = /rɪˈnuːəbəl/ («rinúabol»)")
+        ))
+    )
+
+    /** Índice de la unidad del día (rotación determinística por fecha). [advanced]=true
+     *  incluye también el banco de gramática avanzada (Secundaria); Primaria usa
+     *  solo el básico. */
+    private fun englishPool(advanced: Boolean): List<EnglishUnit> =
+        if (advanced) englishUnits + englishAdvancedUnits else englishUnits
+
+    private fun todaysUnitIndex(advanced: Boolean = false): Int {
+        val pool = englishPool(advanced)
         val dayOfYear = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_YEAR)
-        return dayOfYear % englishUnits.size
+        return dayOfYear % pool.size
     }
 
     /** Título de la lección de inglés de HOY (para mostrar en la UI). */
-    fun todaysEnglishUnitTitle(): String = englishUnits[todaysUnitIndex()].title
-
-    // Vocabulario con dibujos para Preescolar/1º: (emoji, palabra, fonética, español)
-    private data class VocabItem(val emoji: String, val word: String, val phon: String, val es: String)
-    private val starterVocab = listOf(
-        VocabItem("🐶", "dog", "/dɒg/ («dog»)", "perro"),
-        VocabItem("🐱", "cat", "/kæt/ («cat»)", "gato"),
-        VocabItem("🍎", "apple", "/ˈæpəl/ («ápol»)", "manzana"),
-        VocabItem("☀️", "sun", "/sʌn/ («san»)", "sol"),
-        VocabItem("🏠", "house", "/haʊs/ («jaus»)", "casa"),
-        VocabItem("🐟", "fish", "/fɪʃ/ («fish»)", "pez"),
-        VocabItem("🐦", "bird", "/bɜːrd/ («berd»)", "pájaro"),
-        VocabItem("🥛", "milk", "/mɪlk/ («milk»)", "leche"),
-        VocabItem("⚽", "ball", "/bɔːl/ («bol»)", "pelota"),
-        VocabItem("🌙", "moon", "/muːn/ («mun»)", "luna"),
-        VocabItem("💧", "water", "/ˈwɔːtər/ («uóter»)", "agua"),
-        VocabItem("📖", "book", "/bʊk/ («buk»)", "libro"),
-        // Partes de la cara (hoja "Listen, repeat and trace")
-        VocabItem("😊", "face", "/feɪs/ («féis»)", "cara"),
-        VocabItem("👁️", "eye", "/aɪ/ («ái»)", "ojo"),
-        VocabItem("👃", "nose", "/noʊz/ («nóus»)", "nariz"),
-        VocabItem("👄", "mouth", "/maʊθ/ («máuz»)", "boca"),
-        VocabItem("👂", "ear", "/ɪr/ («íer»)", "oreja"),
-        VocabItem("✋", "hand", "/hænd/ («jand»)", "mano")
-    )
+    fun todaysEnglishUnitTitle(advanced: Boolean = false): String =
+        englishPool(advanced)[todaysUnitIndex(advanced)].title
 
     /** Guía de ayuda de inglés para los más pequeños. */
     val starterEnglishHelp = WorkedExample(
@@ -844,8 +1516,11 @@ object ChallengeEngine {
 
     /** Ejercicio de vocabulario con dibujo: emoji→palabra o palabra→emoji. */
     private fun starterEnglish(): EnglishExercise {
-        val item = starterVocab.random()
-        val others = starterVocab.filter { it != item }.shuffled().take(3)
+        // Solo participan las palabras que SÍ tienen emoji (las de emoji="" son
+        // reales en el vocabulario pero esperan una imagen real más adelante).
+        val withEmoji = starterVocab.filter { it.emoji.isNotBlank() }
+        val item = withEmoji.random()
+        val others = withEmoji.filter { it != item }.shuffled().take(3)
         return if (Random.nextBoolean()) {
             EnglishExercise(
                 "Mira el dibujo. ¿Cómo se dice en inglés?",
@@ -867,7 +1542,7 @@ object ChallengeEngine {
         }
     }
 
-    fun randomEnglish(starter: Boolean = false, exclude: String? = null): EnglishExercise {
+    fun randomEnglish(starter: Boolean = false, exclude: String? = null, advanced: Boolean = false): EnglishExercise {
         if (starter) {
             var ex = starterEnglish()
             var tries = 0
@@ -876,8 +1551,9 @@ object ChallengeEngine {
             }
             return ex
         }
-        // Primaria/Secundaria: se practica la UNIDAD DEL DÍA (rotación por fecha).
-        val bank = englishUnits[todaysUnitIndex()].bank
+        // Primaria: solo unidades básicas. Secundaria (advanced=true): básicas +
+        // gramática avanzada, rotación por fecha sobre el pool combinado.
+        val bank = englishPool(advanced)[todaysUnitIndex(advanced)].bank
         val pool = bank.filter { it.question != exclude }.ifEmpty { bank }
         return pool.random().let { it.copy(options = it.options.shuffled()) }
     }

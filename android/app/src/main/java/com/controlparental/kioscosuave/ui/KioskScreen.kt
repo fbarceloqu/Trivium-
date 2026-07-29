@@ -182,17 +182,20 @@ fun KioskScreen(
             )
             Stage.ENGLISH -> {
                 val starter = profile.grade == GradeLevel.PREESCOLAR
+                // Secundaria rota también entre el banco de gramática avanzada
+                // (más variedad y dificultad); Primaria se queda solo con lo básico.
+                val advanced = profile.grade == GradeLevel.SECUNDARIA
                 MultipleChoiceStage(
                     title = if (starter) "Inglés · palabras con dibujos"
-                    else "Inglés · Lección de hoy: ${ChallengeEngine.todaysEnglishUnitTitle()}",
+                    else "Inglés · Lección de hoy: ${ChallengeEngine.todaysEnglishUnitTitle(advanced)}",
                     accent = MaterialTheme.colorScheme.secondary,
                     window = config.englishWindow,
                     nextLabel = "Continuar a Lectura",
                     stageKey = "english",
                     big = big,
-                    initial = { ChallengeEngine.randomEnglish(starter = starter).toQuiz(starter) },
+                    initial = { ChallengeEngine.randomEnglish(starter = starter, advanced = advanced).toQuiz(starter) },
                     loadNext = { prev ->
-                        ChallengeEngine.randomEnglish(starter = starter, exclude = prev).toQuiz(starter)
+                        ChallengeEngine.randomEnglish(starter = starter, exclude = prev, advanced = advanced).toQuiz(starter)
                     },
                     onDone = { stage = Stage.READING }
                 )
