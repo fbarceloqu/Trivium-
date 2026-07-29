@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.controlparental.kioscosuave.ChallengeEngine
 import com.controlparental.kioscosuave.ChildProfile
 import com.controlparental.kioscosuave.EnglishExercise
@@ -403,15 +404,40 @@ private fun ReadingStage(advanced: Boolean, onApproved: () -> Unit) {
     }
 }
 
+/** Una línea es "de dibujos" si no tiene letras ni dígitos (solo emojis/espacios). */
+private fun isEmojiLine(s: String): Boolean =
+    s.isNotBlank() && s.none { it.isLetterOrDigit() }
+
 @Composable
 private fun QuestionCard(text: String) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Text(
-            text,
+        Column(
             modifier = Modifier.fillMaxWidth().padding(20.dp),
-            textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.titleLarge
-        )
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            text.split("\n").forEach { line ->
+                if (line.isBlank()) return@forEach
+                if (isEmojiLine(line)) {
+                    // Fila de dibujos: grande para poder contarlos; si es un solo
+                    // dibujo (vocabulario), gigante.
+                    val single = line.count { !it.isWhitespace() } <= 4
+                    Text(
+                        line,
+                        textAlign = TextAlign.Center,
+                        fontSize = if (single) 72.sp else 40.sp,
+                        lineHeight = if (single) 84.sp else 52.sp,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                    )
+                } else {
+                    Text(
+                        line,
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -438,7 +464,11 @@ private fun OptionsGrid(
                         onClick = { onClick(opt) },
                         colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = container),
                         modifier = Modifier.weight(1f)
-                    ) { Text(opt) }
+                    ) {
+                        // Opciones de dibujo (elegir el emoji correcto) en grande.
+                        if (isEmojiLine(opt)) Text(opt, fontSize = 34.sp)
+                        else Text(opt)
+                    }
                 }
                 if (row.size == 1) Spacer(Modifier.weight(1f))
             }
