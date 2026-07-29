@@ -1503,6 +1503,14 @@ object ChallengeEngine {
     fun todaysEnglishUnitTitle(advanced: Boolean = false): String =
         englishPool(advanced)[todaysUnitIndex(advanced)].title
 
+    /**
+     * Palabra (inglés) asociada a un emoji del vocabulario, si existe.
+     * Permite a la UI mostrar una imagen real en vez del emoji cuando ya
+     * exista un archivo en res/drawable-nodpi/ para esa palabra.
+     */
+    fun wordForEmoji(emoji: String): String? =
+        starterVocab.firstOrNull { it.emoji == emoji }?.word
+
     /** Guía de ayuda de inglés para los más pequeños. */
     val starterEnglishHelp = WorkedExample(
         "Palabras en inglés",

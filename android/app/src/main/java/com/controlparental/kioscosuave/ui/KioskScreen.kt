@@ -1,5 +1,6 @@
 package com.controlparental.kioscosuave.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -489,6 +491,23 @@ private fun ReadingStage(advanced: Boolean, onApproved: () -> Unit) {
 private fun isEmojiLine(s: String): Boolean =
     s.isNotBlank() && s.none { it.isLetterOrDigit() }
 
+/**
+ * Recurso drawable real para un emoji del vocabulario, si ya existe un
+ * archivo en res/drawable-nodpi/ (ver ChallengeEngine.wordForEmoji). Se
+ * revisa por nombre en tiempo real, así que basta con soltar el archivo en
+ * la carpeta -sin tocar código- para que se use automáticamente.
+ */
+@Composable
+private fun imageResFor(emoji: String): Int? {
+    val ctx = LocalContext.current
+    return remember(emoji) {
+        val word = ChallengeEngine.wordForEmoji(emoji) ?: return@remember null
+        val name = word.replace(" ", "_").lowercase()
+        val id = ctx.resources.getIdentifier(name, "drawable", ctx.packageName)
+        id.takeIf { it != 0 }
+    }
+}
+
 @Composable
 private fun QuestionCard(text: String, big: Boolean = false) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
@@ -499,18 +518,44 @@ private fun QuestionCard(text: String, big: Boolean = false) {
             text.split("\n").forEach { line ->
                 if (line.isBlank()) return@forEach
                 if (isEmojiLine(line)) {
-                    // Fila de dibujos: grande para poder contarlos; si es un solo
-                    // dibujo (vocabulario), gigante. En preescolar (big), aún más.
-                    val single = line.count { !it.isWhitespace() } <= 4
-                    val size = if (big) { if (single) 130.sp else 60.sp } else { if (single) 72.sp else 40.sp }
-                    val lh = if (big) { if (single) 150.sp else 76.sp } else { if (single) 84.sp else 52.sp }
-                    Text(
-                        line,
-                        textAlign = TextAlign.Center,
-                        fontSize = size,
-                        lineHeight = lh,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                    )
+                    val tokens = line.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+                    val single = tokens.size <= 1
+                    // Solo se usa imagen real si TODA la fila es el mismo emoji
+                    // repetido (el caso de contar/vocabulario); si son emoji
+                    // mixtos (p. ej. 🔵🟠 de "qué suma muestra"), se queda en emoji.
+                    val imgRes = tokens.distinct().singleOrNull()?.let { imageResFor(it) }
+
+                    if (imgRes != null) {
+                        val imgSize = if (big) { if (single) 140.dp else 64.dp } else { if (single) 84.dp else 44.dp }
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                        ) {
+                            tokens.chunked(5).forEach { rowTokens ->
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    rowTokens.forEach {
+                                        Image(
+                                            painter = painterResource(imgRes),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(imgSize)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // Fila de dibujos: grande para poder contarlos; si es un solo
+                        // dibujo (vocabulario), gigante. En preescolar (big), aún más.
+                        val size = if (big) { if (single) 130.sp else 60.sp } else { if (single) 72.sp else 40.sp }
+                        val lh = if (big) { if (single) 150.sp else 76.sp } else { if (single) 84.sp else 52.sp }
+                        Text(
+                            line,
+                            textAlign = TextAlign.Center,
+                            fontSize = size,
+                            lineHeight = lh,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                        )
+                    }
                 } else {
                     Text(
                         line,
@@ -554,10 +599,19 @@ private fun OptionsGrid(
                         else androidx.compose.material3.ButtonDefaults.ContentPadding,
                         modifier = Modifier.weight(1f)
                     ) {
-                        // Opciones de dibujo (elegir el emoji correcto) en grande;
-                        // más grande aún en preescolar. Texto plano también se agranda.
-                        if (isEmojiLine(opt)) Text(opt, fontSize = if (big) 56.sp else 34.sp)
-                        else Text(opt, fontSize = if (big) 26.sp else 14.sp, fontWeight = if (big) FontWeight.Bold else null)
+                        // Opciones de dibujo (elegir el emoji/imagen correcta) en
+                        // grande; más grande aún en preescolar. Si ya hay una
+                        // imagen real para esa palabra, se usa en vez del emoji.
+                        val imgRes = if (isEmojiLine(opt)) imageResFor(opt) else null
+                        when {
+                            imgRes != null -> Image(
+                                painter = painterResource(imgRes),
+                                contentDescription = null,
+                                modifier = Modifier.size(if (big) 64.dp else 40.dp)
+                            )
+                            isEmojiLine(opt) -> Text(opt, fontSize = if (big) 56.sp else 34.sp)
+                            else -> Text(opt, fontSize = if (big) 26.sp else 14.sp, fontWeight = if (big) FontWeight.Bold else null)
+                        }
                     }
                 }
                 if (row.size == 1) Spacer(Modifier.weight(1f))
