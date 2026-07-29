@@ -14,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -45,6 +46,7 @@ import com.controlparental.kioscosuave.MathQuestion
 import com.controlparental.kioscosuave.ProgressSync
 import com.controlparental.kioscosuave.ReadingPassage
 import com.controlparental.kioscosuave.SummaryResult
+import com.controlparental.kioscosuave.TtsManager
 
 /** Precisión mínima (aciertos ÷ intentos) para aprobar cada etapa. */
 private const val PASS_ACCURACY = 80
@@ -61,8 +63,16 @@ private data class Quiz(
     val options: List<String>,
     val answer: String,
     val afterLines: List<String>, // se muestran tras responder (procedimiento / regla)
-    val help: Help?               // contenido del botón de ayuda
+    val help: Help?,              // contenido del botón de ayuda
+    val speech: String? = null,   // texto que lee el botón 🔊 (TTS)
+    val speechEnglish: Boolean = false
 )
+
+/** Quita emojis/símbolos para que el TTS no lea basura. */
+private fun stripEmoji(s: String): String =
+    s.replace(Regex("[\\p{So}\\p{Cs}\\uFE0F\\u20E3_]"), " ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
 
 private fun MathQuestion.toQuiz() = Quiz(
     instruction = null,
@@ -70,18 +80,26 @@ private fun MathQuestion.toQuiz() = Quiz(
     options = options,
     answer = answer,
     afterLines = steps,
-    help = Help(example.title, example.lines)
+    help = Help(example.title, example.lines),
+    speech = stripEmoji(question.replace("\n", ". "))
 )
 
-private fun EnglishExercise.toQuiz(starter: Boolean = false) = Quiz(
-    instruction = instruction,
-    question = question,
-    options = options,
-    answer = correctAnswer,
-    afterLines = listOf(explanation, "🔊 Pronunciación: $phonetic"),
-    help = if (starter) Help(ChallengeEngine.starterEnglishHelp.title, ChallengeEngine.starterEnglishHelp.lines)
-    else Help(ChallengeEngine.englishHelp.title, ChallengeEngine.englishHelp.lines)
-)
+private fun EnglishExercise.toQuiz(starter: Boolean = false): Quiz {
+    // Si la "pregunta" tiene letras es texto en inglés (se lee con voz en inglés);
+    // si es solo un dibujo (emoji), se lee la instrucción en español.
+    val questionIsText = question.any { it.isLetter() }
+    return Quiz(
+        instruction = instruction,
+        question = question,
+        options = options,
+        answer = correctAnswer,
+        afterLines = listOf(explanation, "🔊 Pronunciación: $phonetic"),
+        help = if (starter) Help(ChallengeEngine.starterEnglishHelp.title, ChallengeEngine.starterEnglishHelp.lines)
+        else Help(ChallengeEngine.englishHelp.title, ChallengeEngine.englishHelp.lines),
+        speech = if (questionIsText) stripEmoji(question) else instruction,
+        speechEnglish = questionIsText
+    )
+}
 
 private fun ChallengeEngine.ReadingQuiz.toQuiz(): Quiz {
     val isCompletion = sentence.contains('_')
@@ -94,7 +112,9 @@ private fun ChallengeEngine.ReadingQuiz.toQuiz(): Quiz {
         afterLines = if (isCompletion)
             listOf("La palabra completa es: ${sentence.replaceFirst("_", answer)}")
         else listOf("La oración dice: «$sentence»"),
-        help = Help(ChallengeEngine.readingQuizHelp.title, ChallengeEngine.readingQuizHelp.lines)
+        help = Help(ChallengeEngine.readingQuizHelp.title, ChallengeEngine.readingQuizHelp.lines),
+        speech = if (isCompletion) "Mira el dibujo y completa la palabra. $question"
+        else "${stripEmoji(sentence)} $question"
     )
 }
 
@@ -257,7 +277,12 @@ private fun MultipleChoiceStage(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title, style = MaterialTheme.typography.labelLarge, color = accent)
+        Text(title, style = MaterialTheme.typography.labelLarge, color = accent, modifier = Modifier.weight(1f))
+        quiz.speech?.let { speech ->
+            IconButton(onClick = { TtsManager.speak(ctx, speech, quiz.speechEnglish) }) {
+                Icon(Icons.Filled.VolumeUp, contentDescription = "Escuchar la pregunta", tint = accent)
+            }
+        }
         if (quiz.help != null) {
             IconButton(onClick = { showHelp = true }) {
                 Icon(Icons.Filled.Lightbulb, contentDescription = "Ver ejemplo de ayuda", tint = accent)
@@ -317,11 +342,22 @@ private fun ReadingStage(advanced: Boolean, onApproved: () -> Unit) {
 
     val passed = (result?.score ?: 0) >= PASS_ACCURACY
 
-    Text(
-        "Comprensión lectora · meta $PASS_ACCURACY/100",
-        style = MaterialTheme.typography.labelLarge,
-        color = Color(0xFFF59E0B)
-    )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            "Comprensión lectora · meta $PASS_ACCURACY/100",
+            style = MaterialTheme.typography.labelLarge,
+            color = Color(0xFFF59E0B)
+        )
+        IconButton(onClick = {
+            TtsManager.speak(ctx, "${passage.title}. ${passage.text}")
+        }) {
+            Icon(Icons.Filled.VolumeUp, contentDescription = "Escuchar la lectura", tint = Color(0xFFF59E0B))
+        }
+    }
     Spacer(Modifier.height(8.dp))
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.padding(16.dp)) {

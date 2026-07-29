@@ -495,7 +495,14 @@ object ChallengeEngine {
         VocabItem("⚽", "ball", "/bɔːl/ («bol»)", "pelota"),
         VocabItem("🌙", "moon", "/muːn/ («mun»)", "luna"),
         VocabItem("💧", "water", "/ˈwɔːtər/ («uóter»)", "agua"),
-        VocabItem("📖", "book", "/bʊk/ («buk»)", "libro")
+        VocabItem("📖", "book", "/bʊk/ («buk»)", "libro"),
+        // Partes de la cara (hoja "Listen, repeat and trace")
+        VocabItem("😊", "face", "/feɪs/ («féis»)", "cara"),
+        VocabItem("👁️", "eye", "/aɪ/ («ái»)", "ojo"),
+        VocabItem("👃", "nose", "/noʊz/ («nóus»)", "nariz"),
+        VocabItem("👄", "mouth", "/maʊθ/ («máuz»)", "boca"),
+        VocabItem("👂", "ear", "/ɪr/ («íer»)", "oreja"),
+        VocabItem("✋", "hand", "/hænd/ («jand»)", "mano")
     )
 
     /** Guía de ayuda de inglés para los más pequeños. */
