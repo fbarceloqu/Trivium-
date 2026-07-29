@@ -8,9 +8,12 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // Modelo Gemini centralizado. IMPORTANTE: "gemini-3.5-flash" NO existe y hacía
-  // fallar toda llamada IA. Verifica el ID vigente en ai.google.dev/models antes de cambiarlo.
-  const GEMINI_MODEL = "gemini-2.5-flash";
+  // Modelo Gemini centralizado. Verificado contra ListModels de la key del
+  // proyecto (2026-07-28): gemini-2.5-flash ya NO está disponible para cuentas
+  // nuevas (404); gemini-3.5-flash es el flash GA vigente y responde OK.
+  // Si vuelve a fallar con 404, consultar los disponibles con:
+  //   GET https://generativelanguage.googleapis.com/v1beta/models?key=...
+  const GEMINI_MODEL = "gemini-3.5-flash";
 
   app.use(express.json());
 
