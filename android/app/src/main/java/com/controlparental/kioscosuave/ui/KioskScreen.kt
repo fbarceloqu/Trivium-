@@ -174,12 +174,14 @@ fun KioskScreen(
                 Text(
                     "Hola, ${profile.name} 👋",
                     fontSize = if (big) (26 * headerScale).sp else MaterialTheme.typography.titleMedium.fontSize,
+                    lineHeight = if (big) (32 * headerScale).sp else MaterialTheme.typography.titleMedium.lineHeight,
                     fontWeight = if (big) FontWeight.Bold else null,
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
                     "Completa tus tareas para desbloquear la tablet",
                     fontSize = if (big) (16 * headerScale).sp else MaterialTheme.typography.bodySmall.fontSize,
+                    lineHeight = if (big) (21 * headerScale).sp else MaterialTheme.typography.bodySmall.lineHeight,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error
                 )
@@ -271,6 +273,7 @@ private fun Chip(label: String, active: Boolean, big: Boolean = false, modifier:
             modifier = Modifier.fillMaxWidth().padding(vertical = if (big) 14.dp else 8.dp),
             textAlign = TextAlign.Center,
             fontSize = if (big) (18 * scale).sp else MaterialTheme.typography.labelMedium.fontSize,
+            lineHeight = if (big) (23 * scale).sp else MaterialTheme.typography.labelMedium.lineHeight,
             fontWeight = if (big) FontWeight.Bold else null,
             style = MaterialTheme.typography.labelMedium
         )
@@ -322,6 +325,7 @@ private fun MultipleChoiceStage(
                 Text(
                     help.lines.joinToString("\n"),
                     fontSize = if (big) (18 * scale).sp else MaterialTheme.typography.bodyMedium.fontSize,
+                    lineHeight = if (big) (24 * scale).sp else MaterialTheme.typography.bodyMedium.lineHeight,
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
@@ -336,6 +340,7 @@ private fun MultipleChoiceStage(
         Text(
             title,
             fontSize = if (big) (22 * scale).sp else MaterialTheme.typography.labelLarge.fontSize,
+            lineHeight = if (big) (28 * scale).sp else MaterialTheme.typography.labelLarge.lineHeight,
             fontWeight = if (big) FontWeight.Bold else null,
             style = MaterialTheme.typography.labelLarge,
             color = accent,
@@ -362,6 +367,7 @@ private fun MultipleChoiceStage(
         "Últimas $windowCount/$window · Aciertos en ventana: $windowHits/$window · " +
             "Precisión: $accuracy% (meta $PASS_ACCURACY%)",
         fontSize = if (big) (16 * scale).sp else MaterialTheme.typography.bodySmall.fontSize,
+        lineHeight = if (big) (21 * scale).sp else MaterialTheme.typography.bodySmall.lineHeight,
         style = MaterialTheme.typography.bodySmall
     )
     Spacer(Modifier.height(8.dp))
@@ -369,6 +375,7 @@ private fun MultipleChoiceStage(
         Text(
             it,
             fontSize = if (big) (22 * scale).sp else MaterialTheme.typography.bodyMedium.fontSize,
+            lineHeight = if (big) (29 * scale).sp else MaterialTheme.typography.bodyMedium.lineHeight,
             style = MaterialTheme.typography.bodyMedium
         )
         Spacer(Modifier.height(8.dp))
@@ -615,6 +622,7 @@ private fun QuestionCard(text: String, big: Boolean = false) {
                         line,
                         textAlign = TextAlign.Center,
                         fontSize = if (big) (32 * scale).sp else MaterialTheme.typography.titleLarge.fontSize,
+                        lineHeight = if (big) (40 * scale).sp else MaterialTheme.typography.titleLarge.lineHeight,
                         fontWeight = if (big) FontWeight.Bold else null,
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
@@ -692,6 +700,7 @@ private fun FeedbackBox(ok: Boolean, message: String, big: Boolean = false) {
             message,
             modifier = Modifier.fillMaxWidth().padding(if (big) 16.dp else 12.dp),
             fontSize = if (big) (20 * scale).sp else MaterialTheme.typography.bodySmall.fontSize,
+            lineHeight = if (big) (27 * scale).sp else MaterialTheme.typography.bodySmall.lineHeight,
             style = MaterialTheme.typography.bodySmall
         )
     }
