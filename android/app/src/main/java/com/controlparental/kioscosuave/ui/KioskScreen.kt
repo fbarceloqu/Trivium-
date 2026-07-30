@@ -25,6 +25,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -37,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -72,7 +74,9 @@ private data class Quiz(
     val afterLines: List<String>, // se muestran tras responder (procedimiento / regla)
     val help: Help?,              // contenido del botón de ayuda
     val speech: String? = null,   // texto que lee el botón 🔊 (TTS)
-    val speechEnglish: Boolean = false
+    val speechEnglish: Boolean = false,
+    val wordToSpeak: String? = null,     // palabra en inglés a pronunciar al responder
+    val exampleSentence: String? = null  // oración de ejemplo con esa palabra (botón "escuchar en una oración")
 )
 
 /** Quita emojis/símbolos para que el TTS no lea basura. */
@@ -95,6 +99,22 @@ private fun EnglishExercise.toQuiz(starter: Boolean = false): Quiz {
     // Si la "pregunta" tiene letras es texto en inglés (se lee con voz en inglés);
     // si es solo un dibujo (emoji), se lee la instrucción en español.
     val questionIsText = question.any { it.isLetter() }
+
+    // Palabra a pronunciar al seleccionar una respuesta: en preescolar, una de
+    // (pregunta, respuesta) siempre es la palabra en texto (la otra es el emoji);
+    // en primaria/secundaria la respuesta correcta ya es la palabra/frase en inglés.
+    val word = if (starter) {
+        listOf(question, correctAnswer).firstOrNull { it.any(Char::isLetter) }
+    } else correctAnswer
+
+    // Oración de ejemplo para el botón "Escuchar en una oración".
+    val sentence = if (starter && word != null) {
+        val article = if (word.firstOrNull()?.lowercaseChar() in listOf('a', 'e', 'i', 'o', 'u')) "an" else "a"
+        "I see $article $word."
+    } else if (question.contains("______")) {
+        question.replace("______", correctAnswer)
+    } else null
+
     return Quiz(
         instruction = instruction,
         question = question,
@@ -104,7 +124,9 @@ private fun EnglishExercise.toQuiz(starter: Boolean = false): Quiz {
         help = if (starter) Help(ChallengeEngine.starterEnglishHelp.title, ChallengeEngine.starterEnglishHelp.lines)
         else Help(ChallengeEngine.englishHelp.title, ChallengeEngine.englishHelp.lines),
         speech = if (questionIsText) stripEmoji(question) else instruction,
-        speechEnglish = questionIsText
+        speechEnglish = questionIsText,
+        wordToSpeak = word,
+        exampleSentence = sentence
     )
 }
 
@@ -135,6 +157,7 @@ fun KioskScreen(
     var stage by remember { mutableStateOf(Stage.MATH) }
     // Preescolar/1º: todo el texto y los dibujos se muestran mucho más grandes.
     val big = profile.grade == GradeLevel.PREESCOLAR
+    val headerScale = screenScale()
 
     Column(
         modifier = Modifier
@@ -150,13 +173,13 @@ fun KioskScreen(
             Column {
                 Text(
                     "Hola, ${profile.name} 👋",
-                    fontSize = if (big) 26.sp else MaterialTheme.typography.titleMedium.fontSize,
+                    fontSize = if (big) (26 * headerScale).sp else MaterialTheme.typography.titleMedium.fontSize,
                     fontWeight = if (big) FontWeight.Bold else null,
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
                     "Completa tus tareas para desbloquear la tablet",
-                    fontSize = if (big) 16.sp else MaterialTheme.typography.bodySmall.fontSize,
+                    fontSize = if (big) (16 * headerScale).sp else MaterialTheme.typography.bodySmall.fontSize,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error
                 )
@@ -235,6 +258,7 @@ private fun StepIndicator(stage: Stage, big: Boolean = false) {
 
 @Composable
 private fun Chip(label: String, active: Boolean, big: Boolean = false, modifier: Modifier = Modifier) {
+    val scale = screenScale()
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(
@@ -246,7 +270,7 @@ private fun Chip(label: String, active: Boolean, big: Boolean = false, modifier:
             label,
             modifier = Modifier.fillMaxWidth().padding(vertical = if (big) 14.dp else 8.dp),
             textAlign = TextAlign.Center,
-            fontSize = if (big) 18.sp else MaterialTheme.typography.labelMedium.fontSize,
+            fontSize = if (big) (18 * scale).sp else MaterialTheme.typography.labelMedium.fontSize,
             fontWeight = if (big) FontWeight.Bold else null,
             style = MaterialTheme.typography.labelMedium
         )
@@ -273,6 +297,7 @@ private fun MultipleChoiceStage(
     onDone: () -> Unit
 ) {
     val ctx = LocalContext.current
+    val scale = screenScale()
     val history = remember { mutableStateListOf<Boolean>() } // historial de aciertos/fallos
     var quiz by remember { mutableStateOf(initial()) }
     var selected by remember { mutableStateOf<String?>(null) }
@@ -291,12 +316,12 @@ private fun MultipleChoiceStage(
         val help = quiz.help!!
         AlertDialog(
             onDismissRequest = { showHelp = false },
-            confirmButton = { TextButton(onClick = { showHelp = false }) { Text("Entendido", fontSize = if (big) 18.sp else 14.sp) } },
-            title = { Text(help.title, fontSize = if (big) 20.sp else MaterialTheme.typography.titleLarge.fontSize) },
+            confirmButton = { TextButton(onClick = { showHelp = false }) { Text("Entendido", fontSize = (if (big) 18 * scale else 14f).sp) } },
+            title = { Text(help.title, fontSize = if (big) (20 * scale).sp else MaterialTheme.typography.titleLarge.fontSize) },
             text = {
                 Text(
                     help.lines.joinToString("\n"),
-                    fontSize = if (big) 18.sp else MaterialTheme.typography.bodyMedium.fontSize,
+                    fontSize = if (big) (18 * scale).sp else MaterialTheme.typography.bodyMedium.fontSize,
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
@@ -310,7 +335,7 @@ private fun MultipleChoiceStage(
     ) {
         Text(
             title,
-            fontSize = if (big) 22.sp else MaterialTheme.typography.labelLarge.fontSize,
+            fontSize = if (big) (22 * scale).sp else MaterialTheme.typography.labelLarge.fontSize,
             fontWeight = if (big) FontWeight.Bold else null,
             style = MaterialTheme.typography.labelLarge,
             color = accent,
@@ -320,7 +345,7 @@ private fun MultipleChoiceStage(
             IconButton(onClick = { TtsManager.speak(ctx, speech, quiz.speechEnglish) }) {
                 Icon(
                     Icons.Filled.VolumeUp, contentDescription = "Escuchar la pregunta", tint = accent,
-                    modifier = if (big) Modifier.size(36.dp) else Modifier
+                    modifier = if (big) Modifier.size((36 * scale).dp) else Modifier
                 )
             }
         }
@@ -328,7 +353,7 @@ private fun MultipleChoiceStage(
             IconButton(onClick = { showHelp = true }) {
                 Icon(
                     Icons.Filled.Lightbulb, contentDescription = "Ver ejemplo de ayuda", tint = accent,
-                    modifier = if (big) Modifier.size(36.dp) else Modifier
+                    modifier = if (big) Modifier.size((36 * scale).dp) else Modifier
                 )
             }
         }
@@ -336,14 +361,14 @@ private fun MultipleChoiceStage(
     Text(
         "Últimas $windowCount/$window · Aciertos en ventana: $windowHits/$window · " +
             "Precisión: $accuracy% (meta $PASS_ACCURACY%)",
-        fontSize = if (big) 16.sp else MaterialTheme.typography.bodySmall.fontSize,
+        fontSize = if (big) (16 * scale).sp else MaterialTheme.typography.bodySmall.fontSize,
         style = MaterialTheme.typography.bodySmall
     )
     Spacer(Modifier.height(8.dp))
     quiz.instruction?.let {
         Text(
             it,
-            fontSize = if (big) 22.sp else MaterialTheme.typography.bodyMedium.fontSize,
+            fontSize = if (big) (22 * scale).sp else MaterialTheme.typography.bodyMedium.fontSize,
             style = MaterialTheme.typography.bodyMedium
         )
         Spacer(Modifier.height(8.dp))
@@ -357,12 +382,26 @@ private fun MultipleChoiceStage(
         val ok = opt == quiz.answer
         result = ok
         history.add(ok)
+        // Pronuncia la palabra correcta al responder (acierte o no), para reforzar
+        // la pronunciación correcta cada vez.
+        quiz.wordToSpeak?.let { TtsManager.speak(ctx, it, english = true) }
     }
 
     result?.let { ok ->
         Spacer(Modifier.height(12.dp))
         val header = if (ok) "¡Correcto!" else "La respuesta correcta era ${quiz.answer}."
         FeedbackBox(ok, (listOf(header) + quiz.afterLines).joinToString("\n"), big)
+        quiz.exampleSentence?.let { sentence ->
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = { TtsManager.speak(ctx, sentence, english = true) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Filled.VolumeUp, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.size(6.dp))
+                Text("Escuchar en una oración", fontSize = (if (big) 18 * scale else 14f).sp)
+            }
+        }
         Spacer(Modifier.height(8.dp))
         Button(
             contentPadding = if (big) androidx.compose.foundation.layout.PaddingValues(vertical = 18.dp)
@@ -382,7 +421,7 @@ private fun MultipleChoiceStage(
         ) {
             Text(
                 if (passed) nextLabel else "Siguiente pregunta",
-                fontSize = if (big) 20.sp else 14.sp
+                fontSize = (if (big) 20 * scale else 14f).sp
             )
         }
     }
@@ -492,6 +531,19 @@ private fun isEmojiLine(s: String): Boolean =
     s.isNotBlank() && s.none { it.isLetterOrDigit() }
 
 /**
+ * Factor de escala según el ancho REAL de la pantalla (dp), para que el modo
+ * "big" (Preescolar) se vea bien tanto en un teléfono chico como en una
+ * tablet grande, en vez de usar los mismos tamaños fijos siempre.
+ * 400dp = ancho de referencia (tablet mediana en retrato); se limita el
+ * rango para no exagerar en pantallas extremas.
+ */
+@Composable
+private fun screenScale(): Float {
+    val widthDp = LocalConfiguration.current.screenWidthDp
+    return (widthDp / 400f).coerceIn(0.75f, 1.5f)
+}
+
+/**
  * Recurso drawable real para un emoji del vocabulario, si ya existe un
  * archivo en res/drawable-nodpi/ (ver ChallengeEngine.wordForEmoji). Se
  * revisa por nombre en tiempo real, así que basta con soltar el archivo en
@@ -510,6 +562,7 @@ private fun imageResFor(emoji: String): Int? {
 
 @Composable
 private fun QuestionCard(text: String, big: Boolean = false) {
+    val scale = screenScale()
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(20.dp),
@@ -526,7 +579,7 @@ private fun QuestionCard(text: String, big: Boolean = false) {
                     val imgRes = tokens.distinct().singleOrNull()?.let { imageResFor(it) }
 
                     if (imgRes != null) {
-                        val imgSize = if (big) { if (single) 140.dp else 64.dp } else { if (single) 84.dp else 44.dp }
+                        val imgSize = if (big) { if (single) 140 * scale else 64 * scale } else { if (single) 84f else 44f }
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
@@ -537,7 +590,7 @@ private fun QuestionCard(text: String, big: Boolean = false) {
                                         Image(
                                             painter = painterResource(imgRes),
                                             contentDescription = null,
-                                            modifier = Modifier.size(imgSize)
+                                            modifier = Modifier.size(imgSize.dp)
                                         )
                                     }
                                 }
@@ -545,14 +598,15 @@ private fun QuestionCard(text: String, big: Boolean = false) {
                         }
                     } else {
                         // Fila de dibujos: grande para poder contarlos; si es un solo
-                        // dibujo (vocabulario), gigante. En preescolar (big), aún más.
-                        val size = if (big) { if (single) 130.sp else 60.sp } else { if (single) 72.sp else 40.sp }
-                        val lh = if (big) { if (single) 150.sp else 76.sp } else { if (single) 84.sp else 52.sp }
+                        // dibujo (vocabulario), gigante. En preescolar (big), aún más,
+                        // y escalado según el ancho real de la pantalla.
+                        val size = if (big) { if (single) 130 * scale else 60 * scale } else { if (single) 72f else 40f }
+                        val lh = if (big) { if (single) 150 * scale else 76 * scale } else { if (single) 84f else 52f }
                         Text(
                             line,
                             textAlign = TextAlign.Center,
-                            fontSize = size,
-                            lineHeight = lh,
+                            fontSize = size.sp,
+                            lineHeight = lh.sp,
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                         )
                     }
@@ -560,7 +614,7 @@ private fun QuestionCard(text: String, big: Boolean = false) {
                     Text(
                         line,
                         textAlign = TextAlign.Center,
-                        fontSize = if (big) 32.sp else MaterialTheme.typography.titleLarge.fontSize,
+                        fontSize = if (big) (32 * scale).sp else MaterialTheme.typography.titleLarge.fontSize,
                         fontWeight = if (big) FontWeight.Bold else null,
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
@@ -579,6 +633,7 @@ private fun OptionsGrid(
     big: Boolean = false,
     onClick: (String) -> Unit
 ) {
+    val scale = screenScale()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         options.chunked(2).forEach { row ->
             Row(
@@ -607,10 +662,14 @@ private fun OptionsGrid(
                             imgRes != null -> Image(
                                 painter = painterResource(imgRes),
                                 contentDescription = null,
-                                modifier = Modifier.size(if (big) 64.dp else 40.dp)
+                                modifier = Modifier.size((if (big) 64 * scale else 40f).dp)
                             )
-                            isEmojiLine(opt) -> Text(opt, fontSize = if (big) 56.sp else 34.sp)
-                            else -> Text(opt, fontSize = if (big) 26.sp else 14.sp, fontWeight = if (big) FontWeight.Bold else null)
+                            isEmojiLine(opt) -> Text(opt, fontSize = (if (big) 56 * scale else 34f).sp)
+                            else -> Text(
+                                opt,
+                                fontSize = (if (big) 26 * scale else 14f).sp,
+                                fontWeight = if (big) FontWeight.Bold else null
+                            )
                         }
                     }
                 }
@@ -622,6 +681,7 @@ private fun OptionsGrid(
 
 @Composable
 private fun FeedbackBox(ok: Boolean, message: String, big: Boolean = false) {
+    val scale = screenScale()
     Card(
         colors = CardDefaults.cardColors(
             containerColor = if (ok) MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
@@ -631,7 +691,7 @@ private fun FeedbackBox(ok: Boolean, message: String, big: Boolean = false) {
         Text(
             message,
             modifier = Modifier.fillMaxWidth().padding(if (big) 16.dp else 12.dp),
-            fontSize = if (big) 20.sp else MaterialTheme.typography.bodySmall.fontSize,
+            fontSize = if (big) (20 * scale).sp else MaterialTheme.typography.bodySmall.fontSize,
             style = MaterialTheme.typography.bodySmall
         )
     }
