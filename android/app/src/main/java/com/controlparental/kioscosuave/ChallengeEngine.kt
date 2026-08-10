@@ -348,29 +348,6 @@ object ChallengeEngine {
             "Respuesta:  X = 9"
         )
     )
-    // Ejemplo para "PIENSO UN NÚMERO..." (mismo formato que wordLinear).
-    private val EX_WORD_NUMBER = WorkedExample(
-        "Ejemplo resuelto: pienso un número",
-        listOf(
-            "Pienso un número, lo multiplico por 3 y le sumo 4;",
-            "obtengo 19. ¿Qué número pensé?",
-            "Sea n el número:  3·n + 4 = 19",
-            "1) El 4 está sumando → pasa restando:",
-            "     3·n = 19 − 4 = 15",
-            "2) El 3 está multiplicando → pasa dividiendo:",
-            "     n = 15 ÷ 3",
-            "Respuesta:  n = 5"
-        )
-    )
-    private val EX_PURCHASE = WorkedExample(
-        "Ejemplo resuelto: precio por unidad",
-        listOf(
-            "Compró 3 libretas y pagó \$62, con \$14 de envío.",
-            "1) Quita el envío:  62 − 14 = 48",
-            "2) Divide entre la cantidad:  48 ÷ 3 = 16",
-            "Cada libreta cuesta \$16"
-        )
-    )
 
     /** Guía de ayuda de inglés (mini-gramática general por tiempos). */
     val englishHelp = WorkedExample(
@@ -401,19 +378,17 @@ object ChallengeEngine {
                 listOf(::opMultiplication, ::opDivision, ::wordMultiplication, ::wordDivision)
             // SECUNDARIA: antes eran 4 plantillas fijas (ecuación, compra,
             // descuento) que cubrían ~1 de los 13 temas que evalúa la escuela.
-            // Ahora el grueso del pozo es el temario real de 1° de secundaria
-            // (ver curriculum/Skill.kt), y las plantillas de ecuaciones se
-            // conservan porque ese tema todavía no está en el temario nuevo.
+            // Ahora el pozo es el temario real de 1° de secundaria completo
+            // (ver curriculum/Skill.kt), derivado de sus exámenes mensuales.
             //
-            // wordPercentage se retiró: Sec1Porcentajes.descuento hace lo mismo
-            // con distractores que sí corresponden a los errores típicos.
+            // Las plantillas viejas se retiraron porque el temario ya las cubre
+            // con mejores distractores: wordPercentage → Sec1Porcentajes,
+            // opLinear/wordLinear → Sec1Algebra, wordPurchase → valorUnitario.
+            // opLinear se conserva solo como red de seguridad del `?:`.
             Difficulty.HARD -> buildList<() -> MathQuestion> {
                 Sec1MathGenerator.implemented.forEach { skill ->
                     add { Sec1MathGenerator.generate(skill) ?: opLinear() }
                 }
-                add(::opLinear)
-                add(::wordLinear)
-                add(::wordPurchase)
             }
         }
         var q = generators.random().invoke()
@@ -681,37 +656,6 @@ object ChallengeEngine {
             "Se reparten $total $o en partes iguales entre $kids niños. ¿Cuántas le tocan a cada uno?",
             distinctOptions(ans, listOf(ans + 1, ans + 2, ans - 1)), ans.toString(),
             listOf("Dividimos el total entre los niños:", "$total ÷ $kids = $ans"), EX_DIV)
-    }
-
-    private fun wordLinear(): MathQuestion {
-        val x = Random.nextInt(2, 11); val m = Random.nextInt(2, 5); val b = Random.nextInt(1, 10)
-        val result = m * x + b
-        return MathQuestion(
-            "Pienso un número, lo multiplico por $m y le sumo $b; obtengo $result. ¿Qué número pensé?",
-            distinctOptions(x, listOf(x + 1, x + 2, x - 1)), x.toString(),
-            listOf(
-                "Sea n el número:  ${m}·n + $b = $result",
-                "1) El $b está sumando → pasa restando:",
-                "     ${m}·n = $result − $b = ${result - b}",
-                "2) El $m está multiplicando → pasa dividiendo:",
-                "     n = ${result - b} ÷ $m",
-                "n = $x"
-            ), EX_WORD_NUMBER, Curriculum.EC_PROBLEMA.id, ExerciseFormat.CONTEXTO)
-    }
-
-    private fun wordPurchase(): MathQuestion {
-        val n = names.random(); val count = Random.nextInt(2, 6)
-        val unit = Random.nextInt(8, 20); val ship = Random.nextInt(5, 15)
-        val total = count * unit + ship; val ans = unit
-        return MathQuestion(
-            "$n compró $count cuadernos y pagó \$$total en total, incluidos \$$ship de envío. ¿Cuánto costó cada cuaderno?",
-            distinctOptions(ans, listOf(ans + 2, ans - 1, ans + 4)), ans.toString(),
-            listOf(
-                "Total = \$$total, envío = \$$ship, cantidad = $count",
-                "1) Quita el envío:  $total − $ship = ${total - ship}",
-                "2) Divide entre la cantidad:  ${total - ship} ÷ $count = $unit",
-                "Cada cuaderno cuesta \$$unit"
-            ), EX_PURCHASE, Curriculum.PROP_VALOR_UNITARIO.id, ExerciseFormat.CONTEXTO)
     }
 
     private fun distinctOptions(correct: Int, distractors: List<Int>): List<String> {

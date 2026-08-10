@@ -249,7 +249,7 @@ object Curriculum {
     )
     val SUC_REGLA_GENERAL = skill(
         "sec1.suc.regla_general", T_SUC,
-        "Deducir la regla general (aₙ) de una sucesión", // ⚠️ 5,11,17 → 6n−1
+        "Deducir la regla general (a(n)) de una sucesión", // ⚠️ 5,11,17 → 6n−1
         listOf(ExerciseFormat.SECUENCIA, ExerciseFormat.RAZONAMIENTO),
         prerequisites = listOf("sec1.suc.siguiente")
     )
