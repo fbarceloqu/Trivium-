@@ -440,9 +440,9 @@ object Curriculum {
         PROB_ESPACIO, PROB_SIMPLE, PROB_TIPOS, PROB_FACTORIAL, PROB_ARBOL
     )
 
-    private val byId: Map<String, Skill> = sec1Math.associateBy { it.id }
+    private val skillsById: Map<String, Skill> = sec1Math.associateBy { it.id }
 
-    fun byId(id: String): Skill? = byId[id]
+    fun byId(id: String): Skill? = skillsById[id]
 
     fun forGrade(grade: GradeLevel, subject: Subject): List<Skill> =
         sec1Math.filter { it.grade == grade && it.subject == subject }

@@ -407,7 +407,7 @@ object ChallengeEngine {
             //
             // wordPercentage se retiró: Sec1Porcentajes.descuento hace lo mismo
             // con distractores que sí corresponden a los errores típicos.
-            Difficulty.HARD -> buildList {
+            Difficulty.HARD -> buildList<() -> MathQuestion> {
                 Sec1MathGenerator.implemented.forEach { skill ->
                     add { Sec1MathGenerator.generate(skill) ?: opLinear() }
                 }

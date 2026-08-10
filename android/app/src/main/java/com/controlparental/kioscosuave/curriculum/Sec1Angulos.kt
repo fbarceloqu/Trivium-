@@ -137,23 +137,28 @@ internal object Sec1Angulos {
 
         val a = listOf(5, 15, 25, 30, 35, 40, 55, 60, 70, 85).random()
         val ans = 90 - a
+        val esInverso = format == ExerciseFormat.INVERSO
 
-        val question = if (format == ExerciseFormat.INVERSO)
+        val question = if (esInverso)
             "El complementario de un ángulo mide $ans°. ¿Cuánto mide el ángulo original?"
         else
             "¿Cuánto mide el ángulo complementario del ángulo de $a°?"
 
-        val correcta = if (format == ExerciseFormat.INVERSO) a.toDouble() else ans.toDouble()
-        val otro = if (format == ExerciseFormat.INVERSO) 180.0 - ans else 180.0 - a
+        // Los dos generadores son simétricos: el alumno ve un ángulo y debe dar
+        // el otro. Los distractores se construyen sobre el ángulo QUE VE, no
+        // sobre el que debe calcular; si no, "repetir el dato" coincidiría con
+        // la respuesta correcta en el formato inverso.
+        val dado = if (esInverso) ans else a
+        val correcta = (if (esInverso) a else ans).toDouble()
 
         return MathQuestion(
             question = question,
             options = Gen.numOptsSuffix(
                 "°",
                 correcta,
-                otro,                    // error clave: usar 180 (suplementario)
-                a.toDouble(),            // error: repetir el ángulo dado
-                90.0 + a                 // error: sumar en vez de restar
+                180.0 - dado,            // error clave: usar 180 (suplementario)
+                dado.toDouble(),         // error: repetir el ángulo que ya te dieron
+                90.0 + dado              // error: sumar en vez de restar
             ),
             answer = "${Gen.fmt(correcta)}°",
             steps = listOf(
@@ -198,18 +203,23 @@ internal object Sec1Angulos {
             )
         }
 
-        val a = listOf(30, 45, 60, 75, 90, 105, 120, 135, 150).random()
+        // Se excluyen 45° y 90° a propósito: con esos valores un distractor
+        // coincidiría con la respuesta correcta y el ejercicio se resolvería
+        // por descarte.
+        val a = listOf(30, 60, 75, 105, 120, 135, 150).random()
         val ans = 180 - a
+        val esInverso = format == ExerciseFormat.INVERSO
 
-        val question = if (format == ExerciseFormat.INVERSO)
+        val question = if (esInverso)
             "El suplementario de un ángulo mide $ans°. ¿Cuánto mide el ángulo original?"
         else
             "¿Cuánto mide el ángulo suplementario del ángulo de $a°?"
 
-        val correcta = if (format == ExerciseFormat.INVERSO) a.toDouble() else ans.toDouble()
-        // Si el ángulo pasa de 90°, su complementario sería negativo: en ese caso
-        // el distractor "usar 90" no aplica y se sustituye por otro error común.
-        val otro = if (a < 90) (90.0 - a) else (a.toDouble() / 2)
+        val dado = if (esInverso) ans else a
+        val correcta = (if (esInverso) a else ans).toDouble()
+        // Si el ángulo pasa de 90° su complementario sería negativo, así que el
+        // distractor "usar 90" no aplica y se sustituye por otro error común.
+        val otro = if (dado < 90) 90.0 - dado else 360.0 - dado
 
         return MathQuestion(
             question = question,
@@ -217,8 +227,8 @@ internal object Sec1Angulos {
                 "°",
                 correcta,
                 otro,                    // error clave: usar 90 (complementario)
-                a.toDouble(),            // error: repetir el ángulo dado
-                180.0 + a                // error: sumar en vez de restar
+                dado.toDouble(),         // error: repetir el ángulo que ya te dieron
+                180.0 + dado             // error: sumar en vez de restar
             ),
             answer = "${Gen.fmt(correcta)}°",
             steps = listOf(

@@ -182,12 +182,19 @@ internal object Sec1Estadistica {
         }
 
         // Las opciones siempre incluyen "No hay moda" y candidatos plausibles.
+        // Se acumulan de más porque en el caso "sin moda" varios coinciden entre
+        // sí (con 2,4,6,8,10 la media y la mediana son ambas 6) y se quedaría
+        // con menos de 4 opciones.
         val candidatos = LinkedHashSet<String>()
         candidatos += answer
         candidatos += "No hay moda"
         candidatos += Gen.fmt(data.average())          // error: dar la media
         candidatos += data.max().toString()            // error: dar el mayor
         candidatos += Gen.fmt(Gen.median(data))        // error: dar la mediana
+        candidatos += data.min().toString()            // error: dar el menor
+        data.sorted().forEach { if (candidatos.size < 4) candidatos += it.toString() }
+        var relleno = 1
+        while (candidatos.size < 4) candidatos += (data.max() + relleno++).toString()
 
         return MathQuestion(
             question = "¿Cuál es la moda de estos datos?\n${data.joinToString(", ")}",
@@ -347,16 +354,18 @@ internal object Sec1Estadistica {
         ).random()
 
         // Las opciones dependen de si la respuesta es un nombre o un número.
+        // En el caso numérico se usa numOpts, que garantiza 4 aunque los
+        // distractores coincidan entre sí.
         val options = if (answer.toIntOrNull() == null) {
             cats.shuffled()
         } else {
             val a = answer.toInt()
-            Gen.opts(
-                answer,
-                vals.max().toString(),
-                vals.min().toString(),
-                (a + vals.min()).toString(),
-                cats.size.toString()
+            Gen.numOpts(
+                a.toDouble(),
+                vals.max().toDouble(),            // error: dar la barra más alta
+                vals.min().toDouble(),            // error: dar la barra más baja
+                (a + vals.min()).toDouble(),      // error: sumar de más
+                (vals.max() + vals.min()).toDouble()
             )
         }
 

@@ -53,9 +53,9 @@ internal object Sec1Porcentajes {
             question = question,
             options = Gen.numOpts(
                 ans,
-                base / dec,            // error: dividir en vez de multiplicar
-                base * (1 - dec),      // error: calcular el complemento
-                base - p               // error: restar el número del porcentaje
+                base / dec,               // error: dividir en vez de multiplicar
+                base * (1 - dec),         // error: calcular el complemento
+                (base - p).toDouble()     // error: restar el número del porcentaje
             ),
             answer = Gen.fmt(ans),
             steps = listOf(
@@ -101,7 +101,7 @@ internal object Sec1Porcentajes {
         return MathQuestion(
             question = question,
             options = Gen.numOpts(
-                total,
+                total.toDouble(),
                 part * p / 100.0,      // error: volver a aplicar el %
                 part * (100 - p) / 100.0,
                 part + p               // error: sumar el % al dato
