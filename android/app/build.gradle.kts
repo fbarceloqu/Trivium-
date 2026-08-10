@@ -7,15 +7,29 @@ plugins {
     id("com.google.gms.google-services")
 }
 
-// Lee la API key de Gemini desde local.properties (NUNCA se sube a git: cada
-// quien pone la suya). Si no existe, queda vacía y las llamadas a IA fallan
+// Lee las API keys de Gemini desde local.properties (NUNCA se suben a git: cada
+// quien pone las suyas). Si no existen, quedan vacías y las llamadas a IA fallan
 // limpiamente -> el motor de retos usa su respaldo local (fail-safe, sin key
 // la app funciona 100% offline igual que antes).
+//
+// Dos keys, por orden de preferencia:
+//   GEMINI_API_KEY_FREE     -> nivel gratuito. Se intenta SIEMPRE primero.
+//   GEMINI_API_KEY_BILLING  -> con facturación. Solo se usa si la gratuita se
+//                              queda sin cuota (429) o no tiene permiso (403).
+// Así el gasto real solo ocurre cuando la cuota gratuita ya se agotó.
+//
+// ⚠️ DEUDA CONOCIDA: la key con facturación viaja dentro del APK y se puede
+// extraer con apktool. Antes de distribuir la app hay que mover esa llamada a
+// una Cloud Function (ver Fase 3). Mientras el APK no salga de la familia el
+// riesgo está acotado, pero no es una solución que deba llegar a producción.
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) load(file.inputStream())
 }
-val geminiApiKey: String = localProperties.getProperty("GEMINI_API_KEY", "")
+// Compatibilidad hacia atrás: un local.properties viejo solo tiene GEMINI_API_KEY.
+val legacyKey: String = localProperties.getProperty("GEMINI_API_KEY", "")
+val geminiKeyFree: String = localProperties.getProperty("GEMINI_API_KEY_FREE", "")
+val geminiKeyBilling: String = localProperties.getProperty("GEMINI_API_KEY_BILLING", legacyKey)
 
 android {
     namespace = "com.controlparental.kioscosuave"
@@ -28,7 +42,8 @@ android {
         versionCode = 1
         versionName = "1.0-standalone"
         vectorDrawables { useSupportLibrary = true }
-        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
+        buildConfigField("String", "GEMINI_API_KEY_FREE", "\"$geminiKeyFree\"")
+        buildConfigField("String", "GEMINI_API_KEY_BILLING", "\"$geminiKeyBilling\"")
     }
 
     buildTypes {

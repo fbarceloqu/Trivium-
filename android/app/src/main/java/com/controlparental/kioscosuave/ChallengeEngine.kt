@@ -1,5 +1,8 @@
 package com.controlparental.kioscosuave
 
+import com.controlparental.kioscosuave.curriculum.Curriculum
+import com.controlparental.kioscosuave.curriculum.ExerciseFormat
+import com.controlparental.kioscosuave.curriculum.Sec1MathGenerator
 import java.text.Normalizer
 import kotlin.random.Random
 
@@ -11,7 +14,12 @@ data class MathQuestion(
     val options: List<String>,
     val answer: String,
     val steps: List<String>,      // procedimiento paso a paso de ESTA pregunta
-    val example: WorkedExample    // ejemplo resuelto (otro caso) para la ayuda
+    val example: WorkedExample,   // ejemplo resuelto (otro caso) para la ayuda
+    // Etiquetas de la Fase 1. Son nullables porque los generadores viejos
+    // (preescolar/primaria) todavía no están mapeados a habilidades; en cuanto
+    // lo estén, la memoria de la Fase 2 podrá rastrearlos igual.
+    val skillId: String? = null,
+    val format: com.controlparental.kioscosuave.curriculum.ExerciseFormat? = null
 )
 
 data class EnglishExercise(
@@ -363,15 +371,6 @@ object ChallengeEngine {
             "Cada libreta cuesta \$16"
         )
     )
-    private val EX_PERCENT = WorkedExample(
-        "Ejemplo resuelto: descuento",
-        listOf(
-            "Artículo de \$80 con 25% de descuento.",
-            "1) Descuento:  80 × 25 ÷ 100 = 20",
-            "2) Resta al precio:  80 − 20 = 60",
-            "Pagas \$60"
-        )
-    )
 
     /** Guía de ayuda de inglés (mini-gramática general por tiempos). */
     val englishHelp = WorkedExample(
@@ -400,8 +399,22 @@ object ChallengeEngine {
                 listOf(::opAddition, ::opSubtraction, ::wordAddition, ::wordSubtraction)
             Difficulty.MEDIUM ->
                 listOf(::opMultiplication, ::opDivision, ::wordMultiplication, ::wordDivision)
-            Difficulty.HARD ->
-                listOf(::opLinear, ::wordLinear, ::wordPurchase, ::wordPercentage)
+            // SECUNDARIA: antes eran 4 plantillas fijas (ecuación, compra,
+            // descuento) que cubrían ~1 de los 13 temas que evalúa la escuela.
+            // Ahora el grueso del pozo es el temario real de 1° de secundaria
+            // (ver curriculum/Skill.kt), y las plantillas de ecuaciones se
+            // conservan porque ese tema todavía no está en el temario nuevo.
+            //
+            // wordPercentage se retiró: Sec1Porcentajes.descuento hace lo mismo
+            // con distractores que sí corresponden a los errores típicos.
+            Difficulty.HARD -> buildList {
+                Sec1MathGenerator.implemented.forEach { skill ->
+                    add { Sec1MathGenerator.generate(skill) ?: opLinear() }
+                }
+                add(::opLinear)
+                add(::wordLinear)
+                add(::wordPurchase)
+            }
         }
         var q = generators.random().invoke()
         var tries = 0
@@ -630,7 +643,7 @@ object ChallengeEngine {
                 "2) El $coeff está multiplicando → pasa dividiendo:",
                 "     X = ${right - c} ÷ $coeff",
                 "X = $x"
-            ), EX_LINEAR)
+            ), EX_LINEAR, Curriculum.EC_LINEAL.id, ExerciseFormat.DIRECTO)
     }
 
     // --- Situaciones (problemas de contexto) ---
@@ -683,7 +696,7 @@ object ChallengeEngine {
                 "2) El $m está multiplicando → pasa dividiendo:",
                 "     n = ${result - b} ÷ $m",
                 "n = $x"
-            ), EX_WORD_NUMBER)
+            ), EX_WORD_NUMBER, Curriculum.EC_PROBLEMA.id, ExerciseFormat.CONTEXTO)
     }
 
     private fun wordPurchase(): MathQuestion {
@@ -698,22 +711,7 @@ object ChallengeEngine {
                 "1) Quita el envío:  $total − $ship = ${total - ship}",
                 "2) Divide entre la cantidad:  ${total - ship} ÷ $count = $unit",
                 "Cada cuaderno cuesta \$$unit"
-            ), EX_PURCHASE)
-    }
-
-    private fun wordPercentage(): MathQuestion {
-        val price = Random.nextInt(1, 11) * 20
-        val disc = listOf(10, 20, 25, 50).random()
-        val off = price * disc / 100; val ans = price - off
-        return MathQuestion(
-            "Un artículo de \$$price tiene $disc% de descuento. ¿Cuánto pagas al final?",
-            distinctOptions(ans, listOf(ans + 5, ans - 5, price)), ans.toString(),
-            listOf(
-                "Precio = \$$price, descuento = $disc%",
-                "1) Calcula el descuento:  $price × $disc ÷ 100 = \$$off",
-                "2) Resta al precio:  $price − $off = \$$ans",
-                "Pagas \$$ans"
-            ), EX_PERCENT)
+            ), EX_PURCHASE, Curriculum.PROP_VALOR_UNITARIO.id, ExerciseFormat.CONTEXTO)
     }
 
     private fun distinctOptions(correct: Int, distractors: List<Int>): List<String> {
