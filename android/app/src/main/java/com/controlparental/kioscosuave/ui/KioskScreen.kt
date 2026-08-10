@@ -2,15 +2,23 @@ package com.controlparental.kioscosuave.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -19,6 +27,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -30,6 +39,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -38,8 +48,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -56,6 +66,22 @@ import com.controlparental.kioscosuave.ProgressSync
 import com.controlparental.kioscosuave.ReadingPassage
 import com.controlparental.kioscosuave.SummaryResult
 import com.controlparental.kioscosuave.TtsManager
+
+/**
+ * PANTALLA DEL KIOSCO
+ * ===================
+ *
+ * El reparto del espacio es por RESTRICCIONES, no por números fijos: el
+ * ejercicio recibe `weight(1f)` y los dibujos se dimensionan a partir del
+ * espacio que realmente sobra ([Adaptive.fitGridItem]). Así el contenido no
+ * puede desbordarse: si hay menos sitio, el dibujo encoge; no se corta.
+ *
+ * Antes todo colgaba de un `verticalScroll` con tamaños fijos multiplicados por
+ * una escala que solo miraba el ancho, y en horizontal (1013 × 456 dp) la
+ * interfaz crecía al máximo justo donde menos altura había.
+ *
+ * Todos los tamaños salen de [LocalMetrics]; no debe haber literales sueltos.
+ */
 
 /** Precisión mínima (aciertos ÷ intentos) para aprobar cada etapa. */
 private const val PASS_ACCURACY = 80
@@ -76,7 +102,7 @@ private data class Quiz(
     val speech: String? = null,   // texto que lee el botón 🔊 (TTS)
     val speechEnglish: Boolean = false,
     val wordToSpeak: String? = null,     // palabra en inglés a pronunciar al responder
-    val exampleSentence: String? = null  // oración de ejemplo con esa palabra (botón "escuchar en una oración")
+    val exampleSentence: String? = null  // oración de ejemplo con esa palabra
 )
 
 /** Quita emojis/símbolos para que el TTS no lea basura. */
@@ -147,6 +173,10 @@ private fun ChallengeEngine.ReadingQuiz.toQuiz(): Quiz {
     )
 }
 
+// =====================================================================
+//  RAÍZ
+// =====================================================================
+
 @Composable
 fun KioskScreen(
     profile: ChildProfile,
@@ -155,137 +185,192 @@ fun KioskScreen(
 ) {
     val config = remember(profile) { profile.config }
     var stage by remember { mutableStateOf(Stage.MATH) }
-    // Preescolar/1º: todo el texto y los dibujos se muestran mucho más grandes.
+    // Preescolar/1º parte de tamaños base mayores; la escala adaptativa sigue
+    // mandando, así que "grande" nunca implica que deje de caber.
     val big = profile.grade == GradeLevel.PREESCOLAR
-    val headerScale = screenScale()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(20.dp)
+    // Se miden las dimensiones REALES disponibles, no la configuración global:
+    // así también es correcto en pantalla dividida o ventana flotante.
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val w = maxWidth.value
+        val h = maxHeight.value
+        val m = remember(w, h, big) { Adaptive.metrics(w, h, big) }
+
+        CompositionLocalProvider(LocalMetrics provides m) {
+            Column(
+                modifier = Modifier
+                    // widthIn ANTES de fillMaxSize: primero se acota el ancho
+                    // máximo y luego se rellena hasta ese tope. Al revés,
+                    // fillMaxSize ya habría fijado el mínimo al ancho completo
+                    // y el tope no tendría efecto.
+                    .widthIn(max = m.contentMaxWidth.dp)
+                    .fillMaxSize()
+                    .align(Alignment.TopCenter)
+                    .padding(m.pagePad.dp)
+            ) {
+                Header(profile.name, onParentAccess)
+                Spacer(Modifier.size(m.sectionGap.dp))
+                StepIndicator(stage)
+                Spacer(Modifier.size(m.sectionGap.dp))
+
+                // ZONA DEL EJERCICIO: se queda con todo el espacio restante.
+                // Que sea `weight(1f)` es lo que impide que el contenido empuje
+                // los botones fuera de la pantalla.
+                Box(Modifier.fillMaxWidth().weight(1f)) {
+                    when (stage) {
+                        Stage.MATH -> MultipleChoiceStage(
+                            title = "Matemáticas · operaciones y situaciones",
+                            accent = MaterialTheme.colorScheme.primary,
+                            window = config.mathWindow,
+                            nextLabel = "Continuar a Inglés",
+                            stageKey = "math",
+                            initial = { ChallengeEngine.generateMath(config.difficulty).toQuiz() },
+                            loadNext = { prev -> ChallengeEngine.generateMath(config.difficulty, prev).toQuiz() },
+                            onDone = { stage = Stage.ENGLISH }
+                        )
+                        Stage.ENGLISH -> {
+                            val starter = profile.grade == GradeLevel.PREESCOLAR
+                            // Secundaria rota también entre el banco de gramática
+                            // avanzada; Primaria se queda solo con lo básico.
+                            val advanced = profile.grade == GradeLevel.SECUNDARIA
+                            MultipleChoiceStage(
+                                title = if (starter) "Inglés · palabras con dibujos"
+                                else "Inglés · Lección de hoy: ${ChallengeEngine.todaysEnglishUnitTitle(advanced)}",
+                                accent = MaterialTheme.colorScheme.secondary,
+                                window = config.englishWindow,
+                                nextLabel = "Continuar a Lectura",
+                                stageKey = "english",
+                                initial = { ChallengeEngine.randomEnglish(starter = starter, advanced = advanced).toQuiz(starter) },
+                                loadNext = { prev ->
+                                    ChallengeEngine.randomEnglish(starter = starter, exclude = prev, advanced = advanced).toQuiz(starter)
+                                },
+                                onDone = { stage = Stage.READING }
+                            )
+                        }
+                        Stage.READING -> when (profile.grade) {
+                            // Preescolar/1º: leer una oración corta y responder.
+                            GradeLevel.PREESCOLAR -> MultipleChoiceStage(
+                                title = "Lectura · lee y responde",
+                                accent = Color(0xFFF59E0B),
+                                window = 5,
+                                nextLabel = "¡Desbloquear tablet!",
+                                stageKey = "reading",
+                                initial = { ChallengeEngine.randomReadingQuiz().toQuiz() },
+                                loadNext = { prev -> ChallengeEngine.randomReadingQuiz(exclude = prev).toQuiz() },
+                                onDone = onAllComplete
+                            )
+                            else -> ReadingStage(
+                                advanced = profile.grade == GradeLevel.SECUNDARIA,
+                                onApproved = onAllComplete
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// =====================================================================
+//  CABECERA Y PESTAÑAS
+// =====================================================================
+
+@Composable
+private fun Header(name: String, onParentAccess: () -> Unit) {
+    val m = LocalMetrics.current
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    "Hola, ${profile.name} 👋",
-                    fontSize = if (big) (26 * headerScale).sp else MaterialTheme.typography.titleMedium.fontSize,
-                    lineHeight = if (big) (32 * headerScale).sp else MaterialTheme.typography.titleMedium.lineHeight,
-                    fontWeight = if (big) FontWeight.Bold else null,
-                    style = MaterialTheme.typography.titleMedium
-                )
+        Column(Modifier.weight(1f)) {
+            Text(
+                "Hola, $name 👋",
+                fontSize = m.greeting.sp,
+                lineHeight = m.lineHeight(m.greeting).sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+            // El subtítulo es lo primero que se sacrifica cuando la altura
+            // aprieta: es contexto, no información necesaria para responder.
+            if (!m.compactHeader) {
                 Text(
                     "Completa tus tareas para desbloquear la tablet",
-                    fontSize = if (big) (16 * headerScale).sp else MaterialTheme.typography.bodySmall.fontSize,
-                    lineHeight = if (big) (21 * headerScale).sp else MaterialTheme.typography.bodySmall.lineHeight,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
+                    fontSize = m.greetingSub.sp,
+                    lineHeight = m.lineHeight(m.greetingSub).sp,
+                    color = MaterialTheme.colorScheme.error,
+                    maxLines = 2
                 )
             }
-            IconButton(onClick = onParentAccess) {
-                Icon(Icons.Filled.Lock, contentDescription = "Acceso de padres")
-            }
         }
-
-        Spacer(Modifier.height(8.dp))
-        StepIndicator(stage, big)
-        Spacer(Modifier.height(16.dp))
-
-        when (stage) {
-            Stage.MATH -> MultipleChoiceStage(
-                title = "Matemáticas · operaciones y situaciones",
-                accent = MaterialTheme.colorScheme.primary,
-                window = config.mathWindow,
-                nextLabel = "Continuar a Inglés",
-                stageKey = "math",
-                big = big,
-                initial = { ChallengeEngine.generateMath(config.difficulty).toQuiz() },
-                loadNext = { prev -> ChallengeEngine.generateMath(config.difficulty, prev).toQuiz() },
-                onDone = { stage = Stage.ENGLISH }
+        IconButton(
+            onClick = onParentAccess,
+            modifier = Modifier.size(m.minTouch.dp)
+        ) {
+            Icon(
+                Icons.Filled.Lock,
+                contentDescription = "Acceso de padres",
+                modifier = Modifier.size((m.actionIcon * 0.8f).dp)
             )
-            Stage.ENGLISH -> {
-                val starter = profile.grade == GradeLevel.PREESCOLAR
-                // Secundaria rota también entre el banco de gramática avanzada
-                // (más variedad y dificultad); Primaria se queda solo con lo básico.
-                val advanced = profile.grade == GradeLevel.SECUNDARIA
-                MultipleChoiceStage(
-                    title = if (starter) "Inglés · palabras con dibujos"
-                    else "Inglés · Lección de hoy: ${ChallengeEngine.todaysEnglishUnitTitle(advanced)}",
-                    accent = MaterialTheme.colorScheme.secondary,
-                    window = config.englishWindow,
-                    nextLabel = "Continuar a Lectura",
-                    stageKey = "english",
-                    big = big,
-                    initial = { ChallengeEngine.randomEnglish(starter = starter, advanced = advanced).toQuiz(starter) },
-                    loadNext = { prev ->
-                        ChallengeEngine.randomEnglish(starter = starter, exclude = prev, advanced = advanced).toQuiz(starter)
-                    },
-                    onDone = { stage = Stage.READING }
-                )
-            }
-            Stage.READING -> when (profile.grade) {
-                // Preescolar/1º: leer una oración corta y responder (sin escribir).
-                GradeLevel.PREESCOLAR -> MultipleChoiceStage(
-                    title = "Lectura · lee y responde",
-                    accent = Color(0xFFF59E0B),
-                    window = 5,
-                    nextLabel = "¡Desbloquear tablet!",
-                    stageKey = "reading",
-                    big = big,
-                    initial = { ChallengeEngine.randomReadingQuiz().toQuiz() },
-                    loadNext = { prev -> ChallengeEngine.randomReadingQuiz(exclude = prev).toQuiz() },
-                    onDone = onAllComplete
-                )
-                else -> ReadingStage(
-                    advanced = profile.grade == GradeLevel.SECUNDARIA,
-                    onApproved = onAllComplete
-                )
-            }
         }
     }
 }
 
 @Composable
-private fun StepIndicator(stage: Stage, big: Boolean = false) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Chip("Mate", stage == Stage.MATH, big, Modifier.weight(1f))
-        Chip("Inglés", stage == Stage.ENGLISH, big, Modifier.weight(1f))
-        Chip("Lectura", stage == Stage.READING, big, Modifier.weight(1f))
+private fun StepIndicator(stage: Stage) {
+    val m = LocalMetrics.current
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(m.itemGap.dp)
+    ) {
+        Chip("Mate", stage == Stage.MATH, Modifier.weight(1f))
+        Chip("Inglés", stage == Stage.ENGLISH, Modifier.weight(1f))
+        Chip("Lectura", stage == Stage.READING, Modifier.weight(1f))
     }
 }
 
 @Composable
-private fun Chip(label: String, active: Boolean, big: Boolean = false, modifier: Modifier = Modifier) {
-    val scale = screenScale()
+private fun Chip(label: String, active: Boolean, modifier: Modifier = Modifier) {
+    val m = LocalMetrics.current
     Card(
         modifier = modifier,
+        shape = RoundedCornerShape(m.corner.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (active) MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.surface
         )
     ) {
-        Text(
-            label,
-            modifier = Modifier.fillMaxWidth().padding(vertical = if (big) 14.dp else 8.dp),
-            textAlign = TextAlign.Center,
-            fontSize = if (big) (18 * scale).sp else MaterialTheme.typography.labelMedium.fontSize,
-            lineHeight = if (big) (23 * scale).sp else MaterialTheme.typography.labelMedium.lineHeight,
-            fontWeight = if (big) FontWeight.Bold else null,
-            style = MaterialTheme.typography.labelMedium
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = m.minTouch.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                label,
+                textAlign = TextAlign.Center,
+                fontSize = m.tabLabel.sp,
+                lineHeight = m.lineHeight(m.tabLabel).sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+        }
     }
 }
 
+// =====================================================================
+//  ETAPA DE OPCIÓN MÚLTIPLE
+// =====================================================================
+
 /**
- * Etapa de opción múltiple con meta de precisión del 80% sobre una VENTANA
- * MÓVIL de las últimas [window] respuestas.
+ * Etapa con meta de precisión del 80% sobre una VENTANA MÓVIL de las últimas
+ * [window] respuestas.
  * - Una sola oportunidad por pregunta (evita adivinar presionando al azar).
  * - Cada respuesta entra en la ventana; las viejas salen. El niño puede remontar.
  * - Se aprueba cuando la ventana está llena y >= 80% de ella son aciertos.
+ *
+ * El layout se parte en dos paneles cuando la pantalla es apaisada: el dibujo a
+ * la izquierda y las respuestas a la derecha, en vez de apilar y desplazar.
  */
 @Composable
 private fun MultipleChoiceStage(
@@ -294,14 +379,13 @@ private fun MultipleChoiceStage(
     window: Int,
     nextLabel: String,
     stageKey: String,
-    big: Boolean = false,
     initial: () -> Quiz,
     loadNext: (String) -> Quiz,
     onDone: () -> Unit
 ) {
+    val m = LocalMetrics.current
     val ctx = LocalContext.current
-    val scale = screenScale()
-    val history = remember { mutableStateListOf<Boolean>() } // historial de aciertos/fallos
+    val history = remember { mutableStateListOf<Boolean>() } // aciertos/fallos
     var quiz by remember { mutableStateOf(initial()) }
     var selected by remember { mutableStateOf<String?>(null) }
     var result by remember { mutableStateOf<Boolean?>(null) }
@@ -314,247 +398,243 @@ private fun MultipleChoiceStage(
     val accuracy = if (windowCount > 0) windowHits * 100 / windowCount else 0
     val passed = windowCount >= window && windowHits >= requiredCorrect
 
-    // Diálogo de ayuda con ejemplo resuelto / guía.
     if (showHelp && quiz.help != null) {
-        val help = quiz.help!!
-        AlertDialog(
-            onDismissRequest = { showHelp = false },
-            confirmButton = { TextButton(onClick = { showHelp = false }) { Text("Entendido", fontSize = (if (big) 18 * scale else 14f).sp) } },
-            title = { Text(help.title, fontSize = if (big) (20 * scale).sp else MaterialTheme.typography.titleLarge.fontSize) },
-            text = {
-                Text(
-                    help.lines.joinToString("\n"),
-                    fontSize = if (big) (18 * scale).sp else MaterialTheme.typography.bodyMedium.fontSize,
-                    lineHeight = if (big) (24 * scale).sp else MaterialTheme.typography.bodyMedium.lineHeight,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        )
+        HelpDialog(quiz.help!!) { showHelp = false }
     }
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            title,
-            fontSize = if (big) (22 * scale).sp else MaterialTheme.typography.labelLarge.fontSize,
-            lineHeight = if (big) (28 * scale).sp else MaterialTheme.typography.labelLarge.lineHeight,
-            fontWeight = if (big) FontWeight.Bold else null,
-            style = MaterialTheme.typography.labelLarge,
-            color = accent,
-            modifier = Modifier.weight(1f)
-        )
-        quiz.speech?.let { speech ->
-            IconButton(onClick = { TtsManager.speak(ctx, speech, quiz.speechEnglish) }) {
-                Icon(
-                    Icons.Filled.VolumeUp, contentDescription = "Escuchar la pregunta", tint = accent,
-                    modifier = if (big) Modifier.size((36 * scale).dp) else Modifier
-                )
-            }
-        }
-        if (quiz.help != null) {
-            IconButton(onClick = { showHelp = true }) {
-                Icon(
-                    Icons.Filled.Lightbulb, contentDescription = "Ver ejemplo de ayuda", tint = accent,
-                    modifier = if (big) Modifier.size((36 * scale).dp) else Modifier
-                )
-            }
-        }
-    }
-    Text(
-        "Últimas $windowCount/$window · Aciertos en ventana: $windowHits/$window · " +
-            "Precisión: $accuracy% (meta $PASS_ACCURACY%)",
-        fontSize = if (big) (16 * scale).sp else MaterialTheme.typography.bodySmall.fontSize,
-        lineHeight = if (big) (21 * scale).sp else MaterialTheme.typography.bodySmall.lineHeight,
-        style = MaterialTheme.typography.bodySmall
-    )
-    Spacer(Modifier.height(8.dp))
-    quiz.instruction?.let {
-        Text(
-            it,
-            fontSize = if (big) (22 * scale).sp else MaterialTheme.typography.bodyMedium.fontSize,
-            lineHeight = if (big) (29 * scale).sp else MaterialTheme.typography.bodyMedium.lineHeight,
-            style = MaterialTheme.typography.bodyMedium
-        )
-        Spacer(Modifier.height(8.dp))
-    }
-    QuestionCard(quiz.question, big)
-    Spacer(Modifier.height(12.dp))
-
-    OptionsGrid(quiz.options, selected, result, big) { opt ->
-        if (result != null) return@OptionsGrid // ya respondió: no se reintenta
+    val onAnswer: (String) -> Unit = onAnswer@{ opt ->
+        if (result != null) return@onAnswer // ya respondió: no se reintenta
         selected = opt
         val ok = opt == quiz.answer
         result = ok
         history.add(ok)
-        // Pronuncia la palabra correcta al responder (acierte o no), para reforzar
-        // la pronunciación correcta cada vez.
+        // Pronuncia la palabra correcta al responder (acierte o no).
         quiz.wordToSpeak?.let { TtsManager.speak(ctx, it, english = true) }
     }
 
-    result?.let { ok ->
-        Spacer(Modifier.height(12.dp))
-        val header = if (ok) "¡Correcto!" else "La respuesta correcta era ${quiz.answer}."
-        FeedbackBox(ok, (listOf(header) + quiz.afterLines).joinToString("\n"), big)
-        quiz.exampleSentence?.let { sentence ->
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = { TtsManager.speak(ctx, sentence, english = true) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Filled.VolumeUp, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.size(6.dp))
-                Text("Escuchar en una oración", fontSize = (if (big) 18 * scale else 14f).sp)
-            }
+    val onNext: () -> Unit = {
+        if (passed) {
+            ProgressSync.reportStage(ctx, stageKey, history.count { it }, history.size)
+            onDone()
+        } else {
+            quiz = loadNext(quiz.question) // siempre una pregunta diferente
+            selected = null
+            result = null
         }
-        Spacer(Modifier.height(8.dp))
-        Button(
-            contentPadding = if (big) androidx.compose.foundation.layout.PaddingValues(vertical = 18.dp)
-            else androidx.compose.material3.ButtonDefaults.ContentPadding,
-            onClick = {
-                if (passed) {
-                    // Sube el desempeño de la etapa completa (aciertos/intentos totales).
-                    ProgressSync.reportStage(ctx, stageKey, history.count { it }, history.size)
-                    onDone()
-                } else {
-                    quiz = loadNext(quiz.question) // siempre una pregunta diferente
-                    selected = null
-                    result = null
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        StageBar(title, accent, quiz, ctx) { showHelp = true }
+        Text(
+            "Últimas $windowCount/$window · Aciertos: $windowHits/$window · " +
+                "Precisión: $accuracy% (meta $PASS_ACCURACY%)",
+            fontSize = m.statusLine.sp,
+            lineHeight = m.lineHeight(m.statusLine).sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+            maxLines = 2
+        )
+        Spacer(Modifier.size(m.sectionGap.dp))
+
+        if (m.mode == LayoutMode.TWO_PANE) {
+            Row(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(m.sectionGap.dp)
+            ) {
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    InstructionText(quiz.instruction)
+                    QuestionCard(quiz.question, Modifier.fillMaxWidth().weight(1f))
                 }
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                if (passed) nextLabel else "Siguiente pregunta",
-                fontSize = (if (big) 20 * scale else 14f).sp
-            )
+                // La retroalimentación puede ser larga (procedimiento paso a
+                // paso): este panel sí admite desplazamiento para que el botón
+                // de continuar nunca quede fuera de alcance.
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    AnswerArea(quiz, selected, result, passed, nextLabel, onAnswer, onNext)
+                }
+            }
+        } else {
+            InstructionText(quiz.instruction)
+            QuestionCard(quiz.question, Modifier.fillMaxWidth().weight(1f))
+            Spacer(Modifier.size(m.sectionGap.dp))
+            AnswerArea(quiz, selected, result, passed, nextLabel, onAnswer, onNext)
         }
     }
 }
 
 @Composable
-private fun ReadingStage(advanced: Boolean, onApproved: () -> Unit) {
-    val ctx = LocalContext.current
-    val passage by remember { mutableStateOf<ReadingPassage>(ChallengeEngine.randomReading(advanced)) }
-    var summary by remember { mutableStateOf("") }
-    var result by remember { mutableStateOf<SummaryResult?>(null) }
-    var submitCount by remember { mutableStateOf(0) }
-    var evaluating by remember { mutableStateOf(false) }
-    var evaluatedByAi by remember { mutableStateOf(false) }
-
-    val passed = (result?.score ?: 0) >= PASS_ACCURACY
-
+private fun StageBar(
+    title: String,
+    accent: Color,
+    quiz: Quiz,
+    ctx: android.content.Context,
+    onHelp: () -> Unit
+) {
+    val m = LocalMetrics.current
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            "Comprensión lectora · meta $PASS_ACCURACY/100",
-            style = MaterialTheme.typography.labelLarge,
-            color = Color(0xFFF59E0B)
+            title,
+            fontSize = m.stageTitle.sp,
+            lineHeight = m.lineHeight(m.stageTitle).sp,
+            fontWeight = FontWeight.Bold,
+            color = accent,
+            maxLines = 2,
+            modifier = Modifier.weight(1f)
         )
-        IconButton(onClick = {
-            TtsManager.speak(ctx, "${passage.title}. ${passage.text}")
-        }) {
-            Icon(Icons.Filled.VolumeUp, contentDescription = "Escuchar la lectura", tint = Color(0xFFF59E0B))
+        quiz.speech?.let { speech ->
+            IconButton(
+                onClick = { TtsManager.speak(ctx, speech, quiz.speechEnglish) },
+                modifier = Modifier.size(m.minTouch.dp)
+            ) {
+                Icon(
+                    Icons.Filled.VolumeUp,
+                    contentDescription = "Escuchar la pregunta",
+                    tint = accent,
+                    modifier = Modifier.size((m.actionIcon * 0.8f).dp)
+                )
+            }
         }
-    }
-    Spacer(Modifier.height(8.dp))
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(Modifier.padding(16.dp)) {
-            Text(passage.title, style = MaterialTheme.typography.titleSmall)
-            Spacer(Modifier.height(6.dp))
-            Text(passage.text, style = MaterialTheme.typography.bodyMedium)
+        if (quiz.help != null) {
+            IconButton(
+                onClick = onHelp,
+                modifier = Modifier.size(m.minTouch.dp)
+            ) {
+                Icon(
+                    Icons.Filled.Lightbulb,
+                    contentDescription = "Ver ejemplo de ayuda",
+                    tint = accent,
+                    modifier = Modifier.size((m.actionIcon * 0.8f).dp)
+                )
+            }
         }
-    }
-    Spacer(Modifier.height(12.dp))
-
-    val words = summary.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.size
-    OutlinedTextField(
-        value = summary,
-        onValueChange = { if (!passed) summary = it },
-        label = { Text("Escribe tu resumen ($words palabras)") },
-        modifier = Modifier.fillMaxWidth().height(140.dp),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
-    )
-
-    if (evaluating) {
-        Spacer(Modifier.height(12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-            Spacer(Modifier.size(8.dp))
-            Text("IA evaluando tu resumen…", style = MaterialTheme.typography.bodySmall)
-        }
-    }
-
-    result?.let { r ->
-        Spacer(Modifier.height(12.dp))
-        val badge = if (evaluatedByAi) "🤖 Evaluado por IA" else "📋 Evaluado localmente (sin conexión)"
-        FeedbackBox(passed, "$badge\n\n${r.feedback}\n\n💡 ${r.suggestions}  ·  Puntaje: ${r.score}/100")
-    }
-
-    Spacer(Modifier.height(12.dp))
-    if (passed) {
-        Button(onClick = onApproved, modifier = Modifier.fillMaxWidth()) {
-            Text("¡Desbloquear tablet!")
-        }
-    } else {
-        Button(
-            onClick = {
-                submitCount++
-                evaluating = true
-                // Intenta evaluar con IA (Gemini); si falla, no hay internet, o no
-                // hay API key configurada, degrada a la heurística local (misma
-                // política fail-safe que el backend web: nunca aprueba a ciegas).
-                GeminiClient.evaluateSummary(passage.text, summary) { aiResult ->
-                    evaluating = false
-                    if (aiResult != null) {
-                        evaluatedByAi = true
-                        result = SummaryResult(
-                            approved = aiResult.approved,
-                            score = aiResult.score,
-                            feedback = aiResult.feedback,
-                            suggestions = aiResult.suggestions
-                        )
-                    } else {
-                        evaluatedByAi = false
-                        result = ChallengeEngine.evaluateSummary(passage.text, summary)
-                    }
-                    // Sube el resultado de lectura (score y nº de envíos).
-                    ProgressSync.reportReading(ctx, result!!.score, submitCount)
-                }
-            },
-            enabled = summary.trim().length >= 15 && !evaluating,
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("Enviar resumen") }
     }
 }
+
+@Composable
+private fun InstructionText(instruction: String?) {
+    val m = LocalMetrics.current
+    instruction?.let {
+        Text(
+            it,
+            fontSize = m.instruction.sp,
+            lineHeight = m.lineHeight(m.instruction).sp,
+            modifier = Modifier.fillMaxWidth().padding(bottom = m.itemGap.dp)
+        )
+    }
+}
+
+/**
+ * Respuestas + retroalimentación + botón de continuar.
+ *
+ * Va junto a propósito: es el bloque que SIEMPRE debe estar visible y tocable.
+ * En modo apilado ocupa lo que necesita y el dibujo cede espacio (porque el
+ * dibujo tiene `weight`, no una altura fija).
+ */
+@Composable
+private fun AnswerArea(
+    quiz: Quiz,
+    selected: String?,
+    result: Boolean?,
+    passed: Boolean,
+    nextLabel: String,
+    onAnswer: (String) -> Unit,
+    onNext: () -> Unit
+) {
+    val m = LocalMetrics.current
+    val ctx = LocalContext.current
+
+    Column(Modifier.fillMaxWidth()) {
+        OptionsGrid(quiz.options, selected, result, onAnswer)
+
+        result?.let { ok ->
+            Spacer(Modifier.size(m.itemGap.dp))
+            val header = if (ok) "¡Correcto!" else "La respuesta correcta era ${quiz.answer}."
+            FeedbackBox(ok, (listOf(header) + quiz.afterLines).joinToString("\n"))
+
+            quiz.exampleSentence?.let { sentence ->
+                Spacer(Modifier.size(m.itemGap.dp))
+                OutlinedButton(
+                    onClick = { TtsManager.speak(ctx, sentence, english = true) },
+                    shape = RoundedCornerShape(m.corner.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = m.minTouch.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.VolumeUp,
+                        contentDescription = null,
+                        modifier = Modifier.size((m.actionIcon * 0.6f).dp)
+                    )
+                    Spacer(Modifier.size(m.itemGap.dp))
+                    Text("Escuchar en una oración", fontSize = m.buttonLabel.sp, maxLines = 1)
+                }
+            }
+
+            Spacer(Modifier.size(m.itemGap.dp))
+            Button(
+                onClick = onNext,
+                shape = RoundedCornerShape(m.corner.dp),
+                contentPadding = PaddingValues(vertical = m.buttonVPad.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = m.minTouch.dp)
+            ) {
+                Text(
+                    if (passed) nextLabel else "Siguiente pregunta",
+                    fontSize = m.buttonLabel.sp,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HelpDialog(help: Help, onDismiss: () -> Unit) {
+    val m = LocalMetrics.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Entendido", fontSize = m.buttonLabel.sp)
+            }
+        },
+        title = {
+            Text(
+                help.title,
+                fontSize = m.stageTitle.sp,
+                lineHeight = m.lineHeight(m.stageTitle).sp,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            // El ejemplo puede ser largo: aquí el desplazamiento SÍ es correcto.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(
+                    help.lines.joinToString("\n"),
+                    fontSize = m.feedback.sp,
+                    lineHeight = m.lineHeight(m.feedback).sp
+                )
+            }
+        }
+    )
+}
+
+// =====================================================================
+//  TARJETA DE LA PREGUNTA (texto + dibujos adaptativos)
+// =====================================================================
 
 /** Una línea es "de dibujos" si no tiene letras ni dígitos (solo emojis/espacios). */
 private fun isEmojiLine(s: String): Boolean =
     s.isNotBlank() && s.none { it.isLetterOrDigit() }
 
 /**
- * Factor de escala según el ancho REAL de la pantalla (dp), para que el modo
- * "big" (Preescolar) se vea bien tanto en un teléfono chico como en una
- * tablet grande, en vez de usar los mismos tamaños fijos siempre.
- * 400dp = ancho de referencia (tablet mediana en retrato); se limita el
- * rango para no exagerar en pantallas extremas.
- */
-@Composable
-private fun screenScale(): Float {
-    val widthDp = LocalConfiguration.current.screenWidthDp
-    return (widthDp / 400f).coerceIn(0.75f, 1.5f)
-}
-
-/**
- * Recurso drawable real para un emoji del vocabulario, si ya existe un
- * archivo en res/drawable-nodpi/ (ver ChallengeEngine.wordForEmoji). Se
- * revisa por nombre en tiempo real, así que basta con soltar el archivo en
- * la carpeta -sin tocar código- para que se use automáticamente.
+ * Recurso drawable real para un emoji del vocabulario, si existe un archivo en
+ * res/drawable-nodpi/ (ver ChallengeEngine.wordForEmoji). Se resuelve por
+ * nombre en tiempo real: basta soltar el archivo en la carpeta para que se use.
  */
 @Composable
 private fun imageResFor(emoji: String): Int? {
@@ -567,130 +647,210 @@ private fun imageResFor(emoji: String): Int? {
     }
 }
 
+/**
+ * Pregunta y dibujos. El tamaño de los dibujos NO es fijo: se calcula con
+ * [Adaptive.fitGridItem] a partir del espacio que queda después del texto, así
+ * que la fila de objetos a contar siempre cabe completa, en cualquier pantalla.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun QuestionCard(text: String, big: Boolean = false) {
-    val scale = screenScale()
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            text.split("\n").forEach { line ->
-                if (line.isBlank()) return@forEach
-                if (isEmojiLine(line)) {
-                    val tokens = line.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
-                    val single = tokens.size <= 1
-                    // Solo se usa imagen real si TODA la fila es el mismo emoji
-                    // repetido (el caso de contar/vocabulario); si son emoji
-                    // mixtos (p. ej. 🔵🟠 de "qué suma muestra"), se queda en emoji.
-                    val imgRes = tokens.distinct().singleOrNull()?.let { imageResFor(it) }
+private fun QuestionCard(text: String, modifier: Modifier = Modifier) {
+    val m = LocalMetrics.current
+    val density = LocalDensity.current
 
-                    if (imgRes != null) {
-                        val imgSize = if (big) { if (single) 140 * scale else 64 * scale } else { if (single) 84f else 44f }
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                        ) {
-                            tokens.chunked(5).forEach { rowTokens ->
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    rowTokens.forEach {
-                                        Image(
-                                            painter = painterResource(imgRes),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(imgSize.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        // Fila de dibujos: grande para poder contarlos; si es un solo
-                        // dibujo (vocabulario), gigante. En preescolar (big), aún más,
-                        // y escalado según el ancho real de la pantalla.
-                        val size = if (big) { if (single) 130 * scale else 60 * scale } else { if (single) 72f else 40f }
-                        val lh = if (big) { if (single) 150 * scale else 76 * scale } else { if (single) 84f else 52f }
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(m.corner.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        BoxWithConstraints(Modifier.fillMaxSize().padding(m.cardPad.dp)) {
+            val availW = maxWidth.value.takeIf { it.isFinite() } ?: m.contentMaxWidth
+            val availH = maxHeight.value.takeIf { it.isFinite() } ?: (m.heightDp * 0.4f)
+
+            val lines = text.split("\n").filter { it.isNotBlank() }
+            val drawLines = lines.filter { isEmojiLine(it) }
+            val prose = lines.size - drawLines.size
+
+            // Altura que se lleva el texto; el resto es para los dibujos.
+            val proseH = prose * m.lineHeight(m.question) * 1.2f
+            val perDrawH = if (drawLines.isEmpty()) 0f
+            else ((availH - proseH) / drawLines.size).coerceAtLeast(m.countImageMin)
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                lines.forEach { line ->
+                    if (!isEmojiLine(line)) {
                         Text(
                             line,
                             textAlign = TextAlign.Center,
-                            fontSize = size.sp,
-                            lineHeight = lh.sp,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                            fontSize = m.question.sp,
+                            lineHeight = m.lineHeight(m.question).sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.fillMaxWidth()
                         )
+                        return@forEach
                     }
-                } else {
-                    Text(
-                        line,
-                        textAlign = TextAlign.Center,
-                        fontSize = if (big) (32 * scale).sp else MaterialTheme.typography.titleLarge.fontSize,
-                        lineHeight = if (big) (40 * scale).sp else MaterialTheme.typography.titleLarge.lineHeight,
-                        fontWeight = if (big) FontWeight.Bold else null,
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+
+                    val tokens = line.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+                    val single = tokens.size <= 1
+                    // Solo se usa imagen real si TODA la fila es el mismo emoji
+                    // repetido (contar/vocabulario); con emojis mixtos (🔵🟠 de
+                    // "qué suma muestra") se queda en emoji.
+                    val imgRes = tokens.distinct().singleOrNull()?.let { imageResFor(it) }
+
+                    val minSize = if (single) m.heroImageMin else m.countImageMin
+                    val maxSize = if (single) m.heroImageMax else m.countImageMax
+                    val itemDp = Adaptive.fitGridItem(
+                        count = tokens.size,
+                        maxW = availW,
+                        maxH = perDrawH,
+                        gap = m.itemGap,
+                        minSize = minSize,
+                        maxSize = maxSize
                     )
+
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalArrangement = Arrangement.Center,
+                        maxItemsInEachRow = Adaptive.columnsFor(itemDp, availW, m.itemGap)
+                    ) {
+                        tokens.forEach { token ->
+                            if (imgRes != null) {
+                                Image(
+                                    painter = painterResource(imgRes),
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .padding(m.itemGap.dp / 2)
+                                        .size(itemDp.dp)
+                                )
+                            } else {
+                                // El emoji se mide en dp y se convierte a sp para
+                                // que ocupe EXACTAMENTE la casilla calculada, sin
+                                // que la escala de fuente del sistema lo desborde.
+                                val emojiSp = with(density) { (itemDp * 0.78f).dp.toSp() }
+                                Box(
+                                    modifier = Modifier
+                                        .padding(m.itemGap.dp / 2)
+                                        .size(itemDp.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        token,
+                                        fontSize = emojiSp,
+                                        lineHeight = emojiSp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 }
 
+// =====================================================================
+//  RESPUESTAS
+// =====================================================================
+
+/**
+ * Rejilla de respuestas. El número de columnas se decide por el ancho REAL
+ * disponible y por la longitud del texto: dos columnas en cuanto quepan, una
+ * sola cuando las opciones son frases largas o el panel es angosto.
+ */
 @Composable
 private fun OptionsGrid(
     options: List<String>,
     selected: String?,
     correctFlag: Boolean?,
-    big: Boolean = false,
     onClick: (String) -> Unit
 ) {
-    val scale = screenScale()
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        options.chunked(2).forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                row.forEach { opt ->
-                    val container = when {
-                        selected == opt && correctFlag == true -> MaterialTheme.colorScheme.secondary
-                        selected == opt && correctFlag == false -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.surface
-                    }
-                    Button(
-                        onClick = { onClick(opt) },
-                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = container),
-                        contentPadding = if (big)
-                            androidx.compose.foundation.layout.PaddingValues(vertical = 20.dp, horizontal = 12.dp)
-                        else androidx.compose.material3.ButtonDefaults.ContentPadding,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        // Opciones de dibujo (elegir el emoji/imagen correcta) en
-                        // grande; más grande aún en preescolar. Si ya hay una
-                        // imagen real para esa palabra, se usa en vez del emoji.
-                        val imgRes = if (isEmojiLine(opt)) imageResFor(opt) else null
-                        when {
-                            imgRes != null -> Image(
-                                painter = painterResource(imgRes),
-                                contentDescription = null,
-                                modifier = Modifier.size((if (big) 64 * scale else 40f).dp)
-                            )
-                            isEmojiLine(opt) -> Text(opt, fontSize = (if (big) 56 * scale else 34f).sp)
-                            else -> Text(
-                                opt,
-                                fontSize = (if (big) 26 * scale else 14f).sp,
-                                fontWeight = if (big) FontWeight.Bold else null
-                            )
+    val m = LocalMetrics.current
+
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val availW = maxWidth.value.takeIf { it.isFinite() } ?: m.contentMaxWidth
+        val longest = options.maxOfOrNull { it.length } ?: 0
+        // Una columna si el panel es angosto o si las opciones son frases:
+        // partirlas en dos columnas obligaría a cortar palabras.
+        val columns = if (availW < 380f || longest > 22) 1 else 2
+
+        Column(verticalArrangement = Arrangement.spacedBy(m.itemGap.dp)) {
+            options.chunked(columns).forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(m.itemGap.dp)
+                ) {
+                    row.forEach { opt ->
+                        val container = when {
+                            selected == opt && correctFlag == true -> MaterialTheme.colorScheme.secondary
+                            selected == opt && correctFlag == false -> MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.surface
+                        }
+                        Button(
+                            onClick = { onClick(opt) },
+                            shape = RoundedCornerShape(m.corner.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = container),
+                            contentPadding = PaddingValues(
+                                vertical = m.optionVPad.dp,
+                                horizontal = m.itemGap.dp
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = m.minTouch.dp)
+                        ) {
+                            OptionContent(opt)
                         }
                     }
+                    // Rellena el hueco si la última fila va incompleta.
+                    repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                 }
-                if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }
 }
 
 @Composable
-private fun FeedbackBox(ok: Boolean, message: String, big: Boolean = false) {
-    val scale = screenScale()
+private fun OptionContent(opt: String) {
+    val m = LocalMetrics.current
+    val density = LocalDensity.current
+    val imgRes = if (isEmojiLine(opt)) imageResFor(opt) else null
+    // Los dibujos de respuesta se limitan a la mitad del hero para no competir
+    // con la pregunta ni empujar los botones fuera de la pantalla.
+    val pic = (m.heroImageMax * 0.45f).coerceAtLeast(m.countImageMin)
+
+    when {
+        imgRes != null -> Image(
+            painter = painterResource(imgRes),
+            contentDescription = null,
+            modifier = Modifier.size(pic.dp)
+        )
+        isEmojiLine(opt) -> Text(
+            opt,
+            fontSize = with(density) { (pic * 0.8f).dp.toSp() },
+            lineHeight = with(density) { (pic * 0.9f).dp.toSp() }
+        )
+        else -> Text(
+            opt,
+            fontSize = m.option.sp,
+            lineHeight = m.lineHeight(m.option).sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun FeedbackBox(ok: Boolean, message: String) {
+    val m = LocalMetrics.current
     Card(
+        shape = RoundedCornerShape(m.corner.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (ok) MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
             else MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
@@ -698,10 +858,155 @@ private fun FeedbackBox(ok: Boolean, message: String, big: Boolean = false) {
     ) {
         Text(
             message,
-            modifier = Modifier.fillMaxWidth().padding(if (big) 16.dp else 12.dp),
-            fontSize = if (big) (20 * scale).sp else MaterialTheme.typography.bodySmall.fontSize,
-            lineHeight = if (big) (27 * scale).sp else MaterialTheme.typography.bodySmall.lineHeight,
-            style = MaterialTheme.typography.bodySmall
+            modifier = Modifier.fillMaxWidth().padding(m.cardPad.dp),
+            fontSize = m.feedback.sp,
+            lineHeight = m.lineHeight(m.feedback).sp
         )
+    }
+}
+
+// =====================================================================
+//  COMPRENSIÓN LECTORA
+// =====================================================================
+
+@Composable
+private fun ReadingStage(advanced: Boolean, onApproved: () -> Unit) {
+    val m = LocalMetrics.current
+    val ctx = LocalContext.current
+    val passage by remember { mutableStateOf<ReadingPassage>(ChallengeEngine.randomReading(advanced)) }
+    var summary by remember { mutableStateOf("") }
+    var result by remember { mutableStateOf<SummaryResult?>(null) }
+    var submitCount by remember { mutableStateOf(0) }
+    var evaluating by remember { mutableStateOf(false) }
+    var evaluatedByAi by remember { mutableStateOf(false) }
+
+    val passed = (result?.score ?: 0) >= PASS_ACCURACY
+    val words = summary.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.size
+
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Comprensión lectora · meta $PASS_ACCURACY/100",
+                fontSize = m.stageTitle.sp,
+                lineHeight = m.lineHeight(m.stageTitle).sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFF59E0B),
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(
+                onClick = { TtsManager.speak(ctx, "${passage.title}. ${passage.text}") },
+                modifier = Modifier.size(m.minTouch.dp)
+            ) {
+                Icon(
+                    Icons.Filled.VolumeUp,
+                    contentDescription = "Escuchar la lectura",
+                    tint = Color(0xFFF59E0B),
+                    modifier = Modifier.size((m.actionIcon * 0.8f).dp)
+                )
+            }
+        }
+        Spacer(Modifier.size(m.itemGap.dp))
+
+        // La lectura sí puede ser larga: aquí el desplazamiento es legítimo, y
+        // se limita a la lectura para que el campo de texto y el botón de
+        // enviar queden SIEMPRE visibles.
+        Card(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            shape = RoundedCornerShape(m.corner.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(
+                Modifier
+                    .padding(m.cardPad.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    passage.title,
+                    fontSize = m.instruction.sp,
+                    lineHeight = m.lineHeight(m.instruction).sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.size(m.itemGap.dp))
+                Text(
+                    passage.text,
+                    fontSize = m.feedback.sp,
+                    lineHeight = m.lineHeight(m.feedback).sp
+                )
+            }
+        }
+        Spacer(Modifier.size(m.sectionGap.dp))
+
+        OutlinedTextField(
+            value = summary,
+            onValueChange = { if (!passed) summary = it },
+            label = { Text("Escribe tu resumen ($words palabras)", fontSize = m.statusLine.sp) },
+            textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = m.feedback.sp),
+            shape = RoundedCornerShape(m.corner.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = (m.minTouch * 2f).dp, max = (m.heightDp * 0.28f).dp),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
+        )
+
+        if (evaluating) {
+            Spacer(Modifier.size(m.itemGap.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size((m.actionIcon * 0.6f).dp),
+                    strokeWidth = 2.dp
+                )
+                Spacer(Modifier.size(m.itemGap.dp))
+                Text("IA evaluando tu resumen…", fontSize = m.statusLine.sp)
+            }
+        }
+
+        result?.let { r ->
+            Spacer(Modifier.size(m.itemGap.dp))
+            val badge = if (evaluatedByAi) "🤖 Evaluado por IA" else "📋 Evaluado localmente (sin conexión)"
+            FeedbackBox(passed, "$badge\n\n${r.feedback}\n\n💡 ${r.suggestions}  ·  Puntaje: ${r.score}/100")
+        }
+
+        Spacer(Modifier.size(m.sectionGap.dp))
+        if (passed) {
+            Button(
+                onClick = onApproved,
+                shape = RoundedCornerShape(m.corner.dp),
+                contentPadding = PaddingValues(vertical = m.buttonVPad.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = m.minTouch.dp)
+            ) { Text("¡Desbloquear tablet!", fontSize = m.buttonLabel.sp) }
+        } else {
+            Button(
+                onClick = {
+                    submitCount++
+                    evaluating = true
+                    // Intenta evaluar con IA (Gemini); si falla, no hay internet,
+                    // o no hay API key, degrada a la heurística local (misma
+                    // política fail-safe: nunca aprueba a ciegas).
+                    GeminiClient.evaluateSummary(passage.text, summary) { aiResult ->
+                        evaluating = false
+                        if (aiResult != null) {
+                            evaluatedByAi = true
+                            result = SummaryResult(
+                                approved = aiResult.approved,
+                                score = aiResult.score,
+                                feedback = aiResult.feedback,
+                                suggestions = aiResult.suggestions
+                            )
+                        } else {
+                            evaluatedByAi = false
+                            result = ChallengeEngine.evaluateSummary(passage.text, summary)
+                        }
+                        ProgressSync.reportReading(ctx, result!!.score, submitCount)
+                    }
+                },
+                enabled = summary.trim().length >= 15 && !evaluating,
+                shape = RoundedCornerShape(m.corner.dp),
+                contentPadding = PaddingValues(vertical = m.buttonVPad.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = m.minTouch.dp)
+            ) { Text("Enviar resumen", fontSize = m.buttonLabel.sp) }
+        }
     }
 }
