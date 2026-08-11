@@ -150,6 +150,38 @@ object ProgressSync {
         }
     }
 
+    /**
+     * Sube el estado de UNA habilidad a `children/{id}/skills/{skillId}`.
+     *
+     * Es lo que permitirá al panel de padres mostrar el mapa de dominio ("qué
+     * domina, qué le cuesta") en vez del `7/10` de hoy, que no dice nada sobre
+     * QUÉ necesita practicar.
+     *
+     * Best-effort como el resto: si no hay red, el SDK de Firestore lo guarda
+     * en disco y lo sincroniza después. La memoria local nunca depende de esto.
+     */
+    fun reportSkill(ctx: Context, skillId: String, state: com.controlparental.kioscosuave.curriculum.SkillState?) {
+        if (state == null) return
+        withAuth {
+            childDoc(ctx).collection("skills").document(skillId).set(
+                mapOf(
+                    "practices" to state.practices,
+                    "correct" to state.correct,
+                    "streak" to state.streak,
+                    "lapses" to state.lapses,
+                    "accuracy" to state.accuracy,
+                    "mastery" to state.mastery.name,
+                    "intervalDays" to state.intervalDays,
+                    "lastPracticedAt" to state.lastPracticedAt,
+                    "dueAt" to state.dueAt,
+                    "recentErrors" to state.recentErrors,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                ),
+                SetOptions.merge()
+            ).addOnFailureListener { Log.w(TAG, "reportSkill($skillId): ${it.message}") }
+        }
+    }
+
     /** El niño completó todo y la tablet quedó libre. */
     fun reportUnlocked(ctx: Context) {
         withAuth {

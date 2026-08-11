@@ -65,7 +65,11 @@ import com.controlparental.kioscosuave.MathQuestion
 import com.controlparental.kioscosuave.ProgressSync
 import com.controlparental.kioscosuave.ReadingPassage
 import com.controlparental.kioscosuave.SummaryResult
+import com.controlparental.kioscosuave.MemoryStore
 import com.controlparental.kioscosuave.TtsManager
+import com.controlparental.kioscosuave.curriculum.Curriculum
+import com.controlparental.kioscosuave.curriculum.ExerciseFormat
+import com.controlparental.kioscosuave.curriculum.StudySession
 
 /**
  * PANTALLA DEL KIOSCO
@@ -102,7 +106,11 @@ private data class Quiz(
     val speech: String? = null,   // texto que lee el botón 🔊 (TTS)
     val speechEnglish: Boolean = false,
     val wordToSpeak: String? = null,     // palabra en inglés a pronunciar al responder
-    val exampleSentence: String? = null  // oración de ejemplo con esa palabra
+    val exampleSentence: String? = null, // oración de ejemplo con esa palabra
+    // Etiquetas de la memoria de aprendizaje: dicen QUÉ habilidad se está
+    // practicando y con qué presentación, para poder registrar el resultado.
+    val skillId: String? = null,
+    val format: ExerciseFormat? = null
 )
 
 /** Quita emojis/símbolos para que el TTS no lea basura. */
@@ -118,7 +126,9 @@ private fun MathQuestion.toQuiz() = Quiz(
     answer = answer,
     afterLines = steps,
     help = Help(example.title, example.lines),
-    speech = stripEmoji(question.replace("\n", ". "))
+    speech = stripEmoji(question.replace("\n", ". ")),
+    skillId = skillId,
+    format = format
 )
 
 private fun EnglishExercise.toQuiz(starter: Boolean = false): Quiz {
@@ -183,6 +193,7 @@ fun KioskScreen(
     onAllComplete: () -> Unit,
     onParentAccess: () -> Unit
 ) {
+    val ctx = LocalContext.current
     val config = remember(profile) { profile.config }
     var stage by remember { mutableStateOf(Stage.MATH) }
     // Preescolar/1º parte de tamaños base mayores; la escala adaptativa sigue
@@ -218,16 +229,43 @@ fun KioskScreen(
                 // los botones fuera de la pantalla.
                 Box(Modifier.fillMaxWidth().weight(1f)) {
                     when (stage) {
-                        Stage.MATH -> MultipleChoiceStage(
-                            title = "Matemáticas · operaciones y situaciones",
-                            accent = MaterialTheme.colorScheme.primary,
-                            window = config.mathWindow,
-                            nextLabel = "Continuar a Inglés",
-                            stageKey = "math",
-                            initial = { ChallengeEngine.generateMath(config.difficulty).toQuiz() },
-                            loadNext = { prev -> ChallengeEngine.generateMath(config.difficulty, prev).toQuiz() },
-                            onDone = { stage = Stage.ENGLISH }
-                        )
+                        Stage.MATH -> {
+                            // SECUNDARIA usa la memoria de aprendizaje: qué se
+                            // practica hoy lo decide el planificador según lo
+                            // vencido y lo que más se falla, no el azar. Los
+                            // demás niveles siguen con generación aleatoria
+                            // porque su temario aún no está modelado.
+                            val usaMemoria = profile.grade == GradeLevel.SECUNDARIA
+                            val session = if (usaMemoria) {
+                                remember { StudySession(Curriculum.sec1Math, MemoryStore.load(ctx)) }
+                            } else null
+
+                            MultipleChoiceStage(
+                                title = "Matemáticas · operaciones y situaciones",
+                                accent = MaterialTheme.colorScheme.primary,
+                                window = config.mathWindow,
+                                nextLabel = "Continuar a Inglés",
+                                stageKey = "math",
+                                initial = {
+                                    (session?.nextQuestion()
+                                        ?: ChallengeEngine.generateMath(config.difficulty)).toQuiz()
+                                },
+                                loadNext = { prev ->
+                                    (session?.nextQuestion()
+                                        ?: ChallengeEngine.generateMath(config.difficulty, prev)).toQuiz()
+                                },
+                                onResult = { quiz, ok, wrong ->
+                                    val id = quiz.skillId
+                                    val fmt = quiz.format
+                                    if (session != null && id != null && fmt != null) {
+                                        session.record(id, fmt, ok, wrong)
+                                        MemoryStore.save(ctx, session.snapshot())
+                                        ProgressSync.reportSkill(ctx, id, session.stateOf(id))
+                                    }
+                                },
+                                onDone = { stage = Stage.ENGLISH }
+                            )
+                        }
                         Stage.ENGLISH -> {
                             val starter = profile.grade == GradeLevel.PREESCOLAR
                             // Secundaria rota también entre el banco de gramática
@@ -381,7 +419,9 @@ private fun MultipleChoiceStage(
     stageKey: String,
     initial: () -> Quiz,
     loadNext: (String) -> Quiz,
-    onDone: () -> Unit
+    onDone: () -> Unit,
+    /** Se avisa de cada respuesta para alimentar la memoria de aprendizaje. */
+    onResult: (quiz: Quiz, correct: Boolean, wrongChoice: String?) -> Unit = { _, _, _ -> }
 ) {
     val m = LocalMetrics.current
     val ctx = LocalContext.current
@@ -408,6 +448,9 @@ private fun MultipleChoiceStage(
         val ok = opt == quiz.answer
         result = ok
         history.add(ok)
+        // Alimenta la memoria: al fallar se guarda CUÁL opción incorrecta
+        // eligió, porque los distractores son errores típicos concretos.
+        onResult(quiz, ok, if (ok) null else opt)
         // Pronuncia la palabra correcta al responder (acierte o no).
         quiz.wordToSpeak?.let { TtsManager.speak(ctx, it, english = true) }
     }
