@@ -5,6 +5,9 @@
     <!-- Permisos del kiosco. NOTA: en modo "suave" v1 la mayoría son opcionales;
          el kiosco real depende de ser el Launcher HOME + el servicio de accesibilidad. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Para saber si hay red ANTES de intentar una llamada a la IA y evitar
+         gastar el timeout completo cuando es obvio que no hay conexión. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
