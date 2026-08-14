@@ -1,5 +1,6 @@
 package com.controlparental.kioscosuave.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,11 +14,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -33,6 +36,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -48,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -425,7 +430,6 @@ private fun MultipleChoiceStage(
     val windowHits = recent.count { it }
     val windowCount = recent.size
     val requiredCorrect = (window * 8 + 9) / 10 // ceil(window * 0.8)
-    val accuracy = if (windowCount > 0) windowHits * 100 / windowCount else 0
     val passed = windowCount >= window && windowHits >= requiredCorrect
 
     if (showHelp && quiz.help != null) {
@@ -458,14 +462,7 @@ private fun MultipleChoiceStage(
 
     Column(Modifier.fillMaxSize()) {
         StageBar(title, accent, quiz, ctx) { showHelp = true }
-        Text(
-            "Últimas $windowCount/$window · Aciertos: $windowHits/$window · " +
-                "Precisión: $accuracy% (meta $PASS_ACCURACY%)",
-            fontSize = m.statusLine.sp,
-            lineHeight = m.lineHeight(m.statusLine).sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
-            maxLines = 2
-        )
+        ProgressIndicator(windowHits, window, accent)
         Spacer(Modifier.size(m.sectionGap.dp))
 
         if (m.mode == LayoutMode.TWO_PANE) {
@@ -549,6 +546,67 @@ private fun StageBar(
                     modifier = Modifier.size((m.actionIcon * 0.8f).dp)
                 )
             }
+        }
+    }
+}
+
+/**
+ * Progreso de la etapa.
+ *
+ * Sustituye a la línea "Últimas 1/10 · Aciertos: 0/10 · Precisión: 0% (meta
+ * 80%)", que era un reporte analítico compitiendo con la pregunta. El detalle
+ * sigue existiendo —se sube a Firestore y se ve en el panel de padres—, que es
+ * donde le sirve a un adulto. El niño solo necesita saber cuánto lleva.
+ *
+ * PRIMARY usa puntos: se entiende sin leer. SECONDARY usa fracción y barra,
+ * que es más informativo y menos infantil.
+ */
+@Composable
+private fun ProgressIndicator(hits: Int, total: Int, accent: Color) {
+    val m = LocalMetrics.current
+    val apagado = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
+
+    if (m.level.isPrimary) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(m.itemGap.dp / 2),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            repeat(total) { i ->
+                Box(
+                    Modifier
+                        .size((m.statusLine * 0.9f).dp)
+                        .background(if (i < hits) accent else apagado, CircleShape)
+                )
+            }
+        }
+    } else {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(m.itemGap.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "$hits / $total",
+                fontSize = m.statusLine.sp,
+                lineHeight = m.lineHeight(m.statusLine).sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                maxLines = 1
+            )
+            LinearProgressIndicator(
+                progress = { if (total == 0) 0f else hits.toFloat() / total },
+                color = accent,
+                trackColor = apagado,
+                strokeCap = StrokeCap.Round,
+                modifier = Modifier.weight(1f).height((m.statusLine * 0.35f).dp)
+            )
+            // La meta importa, pero como dato de apoyo, no como titular.
+            Text(
+                "meta $PASS_ACCURACY%",
+                fontSize = (m.statusLine * 0.9f).sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                maxLines = 1
+            )
         }
     }
 }
