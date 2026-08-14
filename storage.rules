@@ -1,3 +1,16 @@
+// NO DESPLEGADO TODAVIA
+// ======================
+// Cloud Storage exige plan Blaze (tarjeta a la vista) incluso sin gastar nada,
+// asi que este archivo esta escrito pero NO referenciado desde firebase.json.
+//
+// No hace falta: en las guias el archivo adjunto es OPCIONAL; lo que alimenta
+// el motor son los temas. Sin Storage el panel funciona completo.
+//
+// Para activarlo el dia que se pase a Blaze:
+//   1. Consola Firebase -> Storage -> Comenzar
+//   2. Anadir a firebase.json:  "storage": { "rules": "storage.rules" }
+//   3. firebase deploy --only storage
+
 rules_version = '2';
 
 // Reglas de Firebase Storage para Trivium.
