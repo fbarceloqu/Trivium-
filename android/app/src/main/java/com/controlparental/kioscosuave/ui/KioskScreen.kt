@@ -196,16 +196,17 @@ fun KioskScreen(
     val ctx = LocalContext.current
     val config = remember(profile) { profile.config }
     var stage by remember { mutableStateOf(Stage.MATH) }
-    // Preescolar/1º parte de tamaños base mayores; la escala adaptativa sigue
-    // mandando, así que "grande" nunca implica que deje de caber.
-    val big = profile.grade == GradeLevel.PREESCOLAR
+    // Lenguaje visual según la edad: preescolar y primaria comparten uno
+    // amplio y visual; secundaria usa otro más denso y textual. La escala del
+    // espacio sigue mandando encima, así que ningún nivel deja de caber.
+    val level = Level.forGrade(profile.grade)
 
     // Se miden las dimensiones REALES disponibles, no la configuración global:
     // así también es correcto en pantalla dividida o ventana flotante.
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val w = maxWidth.value
         val h = maxHeight.value
-        val m = remember(w, h, big) { Adaptive.metrics(w, h, big) }
+        val m = remember(w, h, level) { Adaptive.metrics(w, h, level) }
 
         CompositionLocalProvider(LocalMetrics provides m) {
             Column(

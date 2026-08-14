@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.sp
  */
 val LocalMetrics = staticCompositionLocalOf {
     // Valor de respaldo: tablet mediana. Solo se usa si alguien olvida proveer.
-    Adaptive.metrics(600f, 900f, big = false)
+    Adaptive.metrics(600f, 900f, Level.SECONDARY)
 }
 
 @Composable

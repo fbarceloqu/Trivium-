@@ -55,6 +55,15 @@ data class AdaptiveMetrics(
     val widthClass: SizeClass,
     val heightClass: SizeClass,
     val mode: LayoutMode,
+    /** Lenguaje visual según la edad. Eje perpendicular al del espacio. */
+    val level: Level,
+    /**
+     * Si los dibujos pueden ser protagonistas aunque no sean imprescindibles.
+     * En PRIMARY sí: ayudan a entender el concepto. En SECONDARY no: una imagen
+     * solo aparece si aporta valor educativo (un diagrama, una figura), nunca
+     * como decoración.
+     */
+    val showsDecorativeVisuals: Boolean,
     val scale: Float,
     /** Ancho máximo de la columna de contenido (centra en pantallas muy anchas). */
     val contentMaxWidth: Float,
@@ -166,15 +175,18 @@ object Adaptive {
     }
 
     /**
-     * Resuelve todos los tamaños para una pantalla.
+     * Resuelve todos los tamaños para una pantalla y un nivel.
      *
-     * [big] mantiene la intención original (Preescolar ve todo más grande),
-     * pero ahora es un CONJUNTO DE BASES distinto, no un multiplicador ciego:
-     * la escala sigue mandando, así que "grande" nunca significa "no cabe".
+     * Cada [Level] es un CONJUNTO DE BASES distinto, no un multiplicador: no se
+     * trata de que secundaria sea "primaria más chica". PRIMARY es amplio y
+     * visual; SECONDARY es denso y textual, con la letra cómoda pero cabiendo
+     * más información a la vez. La escala del espacio sigue mandando encima de
+     * ambos, así que ningún nivel puede llegar a "no cabe".
      */
-    fun metrics(widthDp: Float, heightDp: Float, big: Boolean): AdaptiveMetrics {
+    fun metrics(widthDp: Float, heightDp: Float, level: Level): AdaptiveMetrics {
         val mode = modeOf(widthDp, heightDp)
         val scale = scaleOf(widthDp, heightDp, mode)
+        val big = level.isPrimary
         val floor = if (big) TEXT_FLOOR_BIG else TEXT_FLOOR
 
         // Texto: escala con piso de legibilidad.
@@ -186,6 +198,7 @@ object Adaptive {
             widthDp = widthDp, heightDp = heightDp,
             widthClass = widthClassOf(widthDp), heightClass = heightClassOf(heightDp),
             mode = mode, scale = scale,
+            level = level, showsDecorativeVisuals = big,
             contentMaxWidth = contentMaxWidthOf(widthDp, mode),
 
             pagePad = d(18f, 10f),
@@ -221,6 +234,7 @@ object Adaptive {
             widthDp = widthDp, heightDp = heightDp,
             widthClass = widthClassOf(widthDp), heightClass = heightClassOf(heightDp),
             mode = mode, scale = scale,
+            level = level, showsDecorativeVisuals = big,
             contentMaxWidth = contentMaxWidthOf(widthDp, mode),
 
             pagePad = d(16f, 10f),
@@ -229,15 +243,21 @@ object Adaptive {
             cardPad = d(14f, 8f),
             corner = d(16f, 10f),
 
+            // Texto cómodo de leer, pero con jerarquía más apretada que en
+            // PRIMARY: la diferencia entre pregunta y opción es menor, así cabe
+            // más contenido a la vez sin que nada quede pequeño.
             greeting = t(20f),
             greetingSub = t(13f),
             tabLabel = t(14f),
-            stageTitle = t(16f),
+            stageTitle = t(15f),
             statusLine = t(12f),
-            instruction = t(16f),
-            question = t(22f),
-            option = t(16f),
-            feedback = t(13f),
+            instruction = t(17f),
+            question = t(23f),
+            // La opción va MÁS cerca de la pregunta que en PRIMARY (5 puntos de
+            // diferencia frente a 6): en secundaria las respuestas son frases,
+            // no números sueltos, y necesitan peso propio para leerse cómodas.
+            option = t(18f),
+            feedback = t(14f),
             buttonLabel = t(15f),
 
             actionIcon = d(26f, 20f),
@@ -246,10 +266,13 @@ object Adaptive {
             optionVPad = d(12f, 8f),
             buttonVPad = d(12f, 8f),
 
-            heroImageMax = d(150f, 64f),
-            heroImageMin = d(56f, 40f),
-            countImageMax = d(72f, 32f),
-            countImageMin = d(28f, 20f),
+            // Dibujos contenidos: en secundaria una imagen aparece solo cuando
+            // aporta (una figura geométrica, un diagrama), nunca como adorno,
+            // así que no debe competir con el enunciado.
+            heroImageMax = d(110f, 56f),
+            heroImageMin = d(48f, 36f),
+            countImageMax = d(54f, 28f),
+            countImageMin = d(24f, 18f),
 
             compactHeader = heightDp < 420f
         )
