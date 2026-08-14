@@ -119,6 +119,7 @@ async function showChildren() {
         <span class="chip">${evas > 0 ? `⚠️ ${evas} intentos de salir` : "Sin evasiones"}</span>
       </div>
       <div class="lastseen">Última actividad: ${fmtDateTime(c.lastSeen)}</div>
+      <div class="lastseen" style="opacity:.6">Dispositivo ${child.id}</div>
     `;
     el.addEventListener("click", () => showDetail(child.id, c));
     grid.appendChild(el);
