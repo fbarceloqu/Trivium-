@@ -9,3 +9,6 @@ coverage/
 .claude/
 # Config web de Firebase del panel (cada quien pega la suya)
 dashboard/firebase-config.js
+
+# Cache local de la CLI de Firebase (no aporta nada al repo)
+.firebase/
