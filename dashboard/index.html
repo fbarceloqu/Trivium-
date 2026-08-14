@@ -84,6 +84,56 @@
     .muted { color: var(--muted); }
     #config-missing code { background: var(--bg); padding: 2px 6px; border-radius: 6px; font-size: 12px; }
     #config-missing li { margin: 8px 0 8px 18px; font-size: 14px; }
+    /* Guías de estudio */
+    .section-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .section-head h2 { font-size: 17px; }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+    select, textarea {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      color: var(--text); padding: 10px 12px; border-radius: 10px;
+      font-size: 14px; font-family: inherit; margin-top: 4px;
+    }
+    select:focus, textarea:focus { outline: none; border-color: var(--indigo); }
+    label input { margin-top: 4px; margin-bottom: 0; }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 640px) { .field-row { grid-template-columns: 1fr; } }
+    .mode-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 4px 0 12px; }
+    @media (max-width: 640px) { .mode-pick { grid-template-columns: 1fr; } }
+    .mode-opt {
+      display: flex; gap: 10px; align-items: flex-start; cursor: pointer;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px; margin: 0;
+    }
+    .mode-opt:has(input:checked) { border-color: var(--indigo); background: rgba(99,102,241,.08); }
+    .mode-opt input { width: auto; margin: 3px 0 0; }
+    .mode-opt span { display: block; color: var(--text); font-size: 13px; }
+    .mode-opt small { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; }
+    .form-actions { display: flex; gap: 10px; }
+    .form-actions button { width: auto; }
+    .guide {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px; margin-bottom: 12px;
+    }
+    .guide-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .guide h4 { font-size: 15px; margin-bottom: 3px; }
+    .guide .meta { font-size: 12px; color: var(--muted); }
+    .guide-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .guide-actions button { padding: 5px 10px; font-size: 11px; }
+    .bars { margin-top: 12px; display: grid; gap: 7px; }
+    .bar-row { display: grid; grid-template-columns: 1fr 90px 42px; gap: 10px; align-items: center; font-size: 12px; }
+    .bar { background: var(--border); border-radius: 999px; height: 7px; overflow: hidden; }
+    .bar > i { display: block; height: 100%; border-radius: 999px; }
+    .takeaway {
+      margin-top: 12px; padding: 10px 12px; border-radius: 10px; font-size: 13px;
+      background: rgba(245,158,11,.10); border: 1px solid rgba(245,158,11,.28);
+    }
+    .pill {
+      font-size: 10px; padding: 2px 8px; border-radius: 999px; margin-left: 6px;
+      border: 1px solid var(--border); color: var(--muted); vertical-align: middle;
+    }
+    .pill.exam { color: var(--amber); border-color: rgba(245,158,11,.4); }
+    .pill.learn { color: var(--indigo); border-color: rgba(99,102,241,.4); }
+    .pill.paused { color: var(--muted); }
   </style>
 </head>
 <body>
@@ -144,6 +194,71 @@
           </thead>
           <tbody id="days-body"></tbody>
         </table>
+      </div>
+
+      <!-- Guías y material de estudio -->
+      <div class="card" style="margin-top:16px;">
+        <div class="section-head">
+          <h2>📚 Guías y material de estudio</h2>
+          <button id="toggle-upload" class="ghost">+ Subir material</button>
+        </div>
+        <p class="muted" style="font-size:13px; margin-top:6px;">
+          Sube la guía o el temario que está viendo tu hijo. Trivium lo usa para
+          decidir qué practicar — no lo convierte en un cuestionario.
+        </p>
+
+        <!-- Formulario -->
+        <form id="guide-form" class="hidden" style="margin-top:16px;">
+          <div class="field-row">
+            <label>Título
+              <input id="g-title" required placeholder="Guía de Matemáticas — Examen de septiembre" />
+            </label>
+            <label>Materia
+              <select id="g-subject">
+                <option value="MATH">Matemáticas</option>
+                <option value="ENGLISH">Inglés</option>
+                <option value="READING">Lectura</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="mode-pick">
+            <label class="mode-opt">
+              <input type="radio" name="g-mode" value="EXAM_PREP" checked />
+              <span><b>📝 Preparar examen</b><small>Hay una fecha. El repaso se intensifica al acercarse.</small></span>
+            </label>
+            <label class="mode-opt">
+              <input type="radio" name="g-mode" value="LEARNING" />
+              <span><b>🧠 Agregar al aprendizaje</b><small>Es lo que está viendo ahora. Entra al repaso normal.</small></span>
+            </label>
+          </div>
+
+          <div class="field-row">
+            <label id="g-date-wrap">Fecha del examen
+              <input id="g-date" type="date" />
+            </label>
+            <label>Archivo (PDF, foto o documento)
+              <input id="g-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.doc,.docx" />
+            </label>
+          </div>
+
+          <label>Temas que cubre
+            <textarea id="g-topics" rows="4"
+              placeholder="Un tema por línea. Por ejemplo:&#10;Repasar fracciones equivalentes&#10;Comparar fracciones&#10;Ángulos complementarios"></textarea>
+          </label>
+          <p class="muted" style="font-size:12px; margin:-4px 0 12px;">
+            Escríbelos tú por ahora. Cuando el análisis automático esté listo,
+            Trivium los sacará del archivo y solo tendrás que revisarlos.
+          </p>
+
+          <div class="form-actions">
+            <button type="submit" id="g-submit">Guardar guía</button>
+            <button type="button" id="g-cancel" class="ghost">Cancelar</button>
+          </div>
+          <div class="error" id="guide-error"></div>
+        </form>
+
+        <div id="guides-list" style="margin-top:16px;"></div>
       </div>
     </div>
   </div>

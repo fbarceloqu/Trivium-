@@ -33,6 +33,19 @@ service cloud.firestore {
       match /days/{day} {
         allow read, write: if isParent() || isTablet();
       }
+      // Memoria de aprendizaje: la tablet la escribe, el padre la lee para el
+      // mapa de dominio. El padre NO escribe aquí: el dominio lo determina el
+      // desempeño del niño, no lo que un adulto declare.
+      match /skills/{skillId} {
+        allow read: if isParent() || isTablet();
+        allow write: if isTablet();
+      }
+      // Guías subidas por el padre. Al revés que arriba: el padre las crea y
+      // la tablet solo las lee para planificar el repaso.
+      match /guides/{guideId} {
+        allow read: if isParent() || isTablet();
+        allow write: if isParent();
+      }
     }
 
     // Todo lo demás, bloqueado.

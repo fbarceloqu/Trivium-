@@ -8,6 +8,7 @@ import {
 import {
   getFirestore, collection, getDocs, doc, getDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initGuides, openGuidesFor } from "./guides.js";
 
 const $ = (id) => document.getElementById(id);
 const show = (id) => $(id).classList.remove("hidden");
@@ -28,6 +29,7 @@ try {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+initGuides(app, db);
 
 // Solo estas cuentas de Google pueden ver el panel. Edita esta lista para
 // agregar/quitar padres autorizados (además, refuerza esto en firestore.rules).
@@ -126,6 +128,7 @@ async function showChildren() {
 // --- Vista: historial de un hijo (últimos 14 días) ---
 async function showDetail(childId, c) {
   hide("children-view"); show("detail-view");
+  openGuidesFor(childId, c.name ?? childId);
   $("detail-name").textContent = c.name ?? childId;
   $("detail-sub").textContent =
     `${GRADE_LABELS[c.grade] ?? ""} · Dispositivo ${childId} · Última actividad: ${fmtDateTime(c.lastSeen)}`;
