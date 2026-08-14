@@ -329,17 +329,6 @@ private fun Header(name: String, onParentAccess: () -> Unit) {
                 fontWeight = FontWeight.Bold,
                 maxLines = 1
             )
-            // El subtítulo es lo primero que se sacrifica cuando la altura
-            // aprieta: es contexto, no información necesaria para responder.
-            if (!m.compactHeader) {
-                Text(
-                    "Completa tus tareas para desbloquear la tablet",
-                    fontSize = m.greetingSub.sp,
-                    lineHeight = m.lineHeight(m.greetingSub).sp,
-                    color = MaterialTheme.colorScheme.error,
-                    maxLines = 2
-                )
-            }
         }
         IconButton(
             onClick = onParentAccess,
@@ -381,7 +370,7 @@ private fun Chip(label: String, active: Boolean, modifier: Modifier = Modifier) 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = m.minTouch.dp),
+                .heightIn(min = m.tabHeight.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -487,24 +476,27 @@ private fun MultipleChoiceStage(
                     InstructionText(quiz.instruction)
                     QuestionCard(quiz.question, Modifier.fillMaxWidth().weight(1f))
                 }
-                // La retroalimentación puede ser larga (procedimiento paso a
-                // paso): este panel sí admite desplazamiento para que el botón
-                // de continuar nunca quede fuera de alcance.
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    AnswerArea(quiz, selected, result, passed, nextLabel, onAnswer, onNext)
+                // Respuestas + retroalimentación se desplazan si hace falta,
+                // pero el botón de continuar va FUERA del scroll: es la acción
+                // que siempre debe estar a un toque de distancia.
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        AnswerArea(quiz, selected, result, onAnswer)
+                    }
+                    NextButton(result, passed, nextLabel, onNext)
                 }
             }
         } else {
             InstructionText(quiz.instruction)
             QuestionCard(quiz.question, Modifier.fillMaxWidth().weight(1f))
             Spacer(Modifier.size(m.sectionGap.dp))
-            AnswerArea(quiz, selected, result, passed, nextLabel, onAnswer, onNext)
+            AnswerArea(quiz, selected, result, onAnswer)
+            NextButton(result, passed, nextLabel, onNext)
         }
     }
 }
@@ -574,21 +566,19 @@ private fun InstructionText(instruction: String?) {
 }
 
 /**
- * Respuestas + retroalimentación + botón de continuar.
+ * Respuestas y retroalimentación. Es el contenido que PUEDE desplazarse.
  *
- * Va junto a propósito: es el bloque que SIEMPRE debe estar visible y tocable.
- * En modo apilado ocupa lo que necesita y el dibujo cede espacio (porque el
- * dibujo tiene `weight`, no una altura fija).
+ * El botón de continuar vive aparte, en [NextButton], para que quede fuera del
+ * área desplazable: tener que hacer scroll para pulsar "Siguiente" después de
+ * cada respuesta es fricción en el camino que el niño recorre decenas de veces
+ * al día.
  */
 @Composable
 private fun AnswerArea(
     quiz: Quiz,
     selected: String?,
     result: Boolean?,
-    passed: Boolean,
-    nextLabel: String,
-    onAnswer: (String) -> Unit,
-    onNext: () -> Unit
+    onAnswer: (String) -> Unit
 ) {
     val m = LocalMetrics.current
     val ctx = LocalContext.current
@@ -599,7 +589,8 @@ private fun AnswerArea(
         result?.let { ok ->
             Spacer(Modifier.size(m.itemGap.dp))
             val header = if (ok) "¡Correcto!" else "La respuesta correcta era ${quiz.answer}."
-            FeedbackBox(ok, (listOf(header) + quiz.afterLines).joinToString("\n"))
+            FeedbackBox(ok, (listOf(header) + quiz.afterLines).joinToString("
+"))
 
             quiz.exampleSentence?.let { sentence ->
                 Spacer(Modifier.size(m.itemGap.dp))
@@ -617,21 +608,33 @@ private fun AnswerArea(
                     Text("Escuchar en una oración", fontSize = m.buttonLabel.sp, maxLines = 1)
                 }
             }
-
-            Spacer(Modifier.size(m.itemGap.dp))
-            Button(
-                onClick = onNext,
-                shape = RoundedCornerShape(m.corner.dp),
-                contentPadding = PaddingValues(vertical = m.buttonVPad.dp),
-                modifier = Modifier.fillMaxWidth().heightIn(min = m.minTouch.dp)
-            ) {
-                Text(
-                    if (passed) nextLabel else "Siguiente pregunta",
-                    fontSize = m.buttonLabel.sp,
-                    maxLines = 1
-                )
-            }
         }
+    }
+}
+
+/** Acción de continuar. Siempre visible, nunca dentro de un área desplazable. */
+@Composable
+private fun NextButton(
+    result: Boolean?,
+    passed: Boolean,
+    nextLabel: String,
+    onNext: () -> Unit
+) {
+    val m = LocalMetrics.current
+    if (result == null) return
+
+    Spacer(Modifier.size(m.itemGap.dp))
+    Button(
+        onClick = onNext,
+        shape = RoundedCornerShape(m.corner.dp),
+        contentPadding = PaddingValues(vertical = m.buttonVPad.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = m.minTouch.dp)
+    ) {
+        Text(
+            if (passed) nextLabel else "Siguiente pregunta",
+            fontSize = m.buttonLabel.sp,
+            maxLines = 1
+        )
     }
 }
 
@@ -899,9 +902,16 @@ private fun FeedbackBox(ok: Boolean, message: String) {
             else MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
         )
     ) {
+        // Acotada: el procedimiento paso a paso puede ser largo y, sin tope,
+        // empujaría al dibujo y al botón fuera de la pantalla. Si no cabe, se
+        // desplaza SOLO la explicación, no la pantalla entera.
         Text(
             message,
-            modifier = Modifier.fillMaxWidth().padding(m.cardPad.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = (m.heightDp * 0.34f).dp)
+                .verticalScroll(rememberScrollState())
+                .padding(m.cardPad.dp),
             fontSize = m.feedback.sp,
             lineHeight = m.lineHeight(m.feedback).sp
         )

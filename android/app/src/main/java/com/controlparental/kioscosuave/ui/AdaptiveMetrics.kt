@@ -81,6 +81,9 @@ data class AdaptiveMetrics(
     // --- componentes ---
     val actionIcon: Float,
     val minTouch: Float,
+    /** Alto de las pestanas de materia. Mas compacto que [minTouch]: son
+     *  botones muy anchos, asi que no necesitan 48dp de alto para ser comodos. */
+    val tabHeight: Float,
     val optionVPad: Float,
     val buttonVPad: Float,
 
@@ -204,6 +207,7 @@ object Adaptive {
 
             actionIcon = d(34f, 24f),
             minTouch = max(56f * scale, MIN_TOUCH),
+            tabHeight = max(42f * scale, 38f),
             optionVPad = d(18f, 10f),
             buttonVPad = d(16f, 10f),
 
@@ -238,6 +242,7 @@ object Adaptive {
 
             actionIcon = d(26f, 20f),
             minTouch = max(48f * scale, MIN_TOUCH),
+            tabHeight = max(38f * scale, 34f),
             optionVPad = d(12f, 8f),
             buttonVPad = d(12f, 8f),
 
