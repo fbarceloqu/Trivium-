@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.controlparental.kioscosuave.ui.HomeScreen
 import com.controlparental.kioscosuave.ui.KioskScreen
 import com.controlparental.kioscosuave.ui.KioscoTheme
+import com.controlparental.kioscosuave.ui.Level
 
 /**
  * Actividad HOME/Launcher. Decide qué mostrar:
@@ -54,7 +55,16 @@ class LauncherActivity : ComponentActivity() {
             }
         })
 
-        setContent { KioscoTheme { Root() } }
+        setContent {
+            // El tema se elige por el nivel del niño de ESTA tablet: preescolar
+            // y primaria comparten un registro visual, secundaria tiene el suyo.
+            // Si aún no hay perfil, el registro neutro (SECONDARY) es el correcto
+            // para la pantalla de configuración.
+            val level = if (ProfileStore.isConfigured(this))
+                Level.forGrade(ProfileStore.getProfile(this).grade)
+            else Level.SECONDARY
+            KioscoTheme(level) { Root() }
+        }
     }
 
     override fun onResume() {
