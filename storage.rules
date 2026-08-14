@@ -1,0 +1,39 @@
+rules_version = '2';
+
+// Reglas de Firebase Storage para Trivium.
+//
+// Aquí solo viven las guías y materiales que suben los padres. La lista blanca
+// debe coincidir con la de android/firestore.rules y con ALLOWED_PARENT_EMAILS
+// en dashboard/app.js.
+//
+// Las tablets LEEN el material (para analizarlo) pero no escriben: el material
+// lo aporta el padre. Nadie sin autenticar toca nada.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isParent() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.email in [
+          'fco.quintanar@gmail.com',
+          'anaid.torresu@gmail.com'
+        ];
+    }
+    function isTablet() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
+    match /guides/{childId}/{fileName} {
+      allow read: if isParent() || isTablet();
+      // Tope de 15 MB: una guía escaneada cabe de sobra y evita que un archivo
+      // enorme se lleve la cuota gratuita por accidente.
+      allow write: if isParent() && request.resource.size < 15 * 1024 * 1024;
+    }
+
+    // Todo lo demás, bloqueado.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
