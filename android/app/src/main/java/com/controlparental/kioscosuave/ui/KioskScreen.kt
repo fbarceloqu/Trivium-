@@ -589,8 +589,7 @@ private fun AnswerArea(
         result?.let { ok ->
             Spacer(Modifier.size(m.itemGap.dp))
             val header = if (ok) "¡Correcto!" else "La respuesta correcta era ${quiz.answer}."
-            FeedbackBox(ok, (listOf(header) + quiz.afterLines).joinToString("
-"))
+            FeedbackBox(ok, (listOf(header) + quiz.afterLines).joinToString("\n"))
 
             quiz.exampleSentence?.let { sentence ->
                 Spacer(Modifier.size(m.itemGap.dp))
