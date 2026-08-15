@@ -694,7 +694,16 @@ private fun AnswerArea(
 
         result?.let { ok ->
             Spacer(Modifier.size(m.itemGap.dp))
-            val header = if (ok) "¡Correcto!" else "La respuesta correcta era ${quiz.answer}."
+            // El tono también cambia con la edad: a un niño el acierto se le
+            // celebra y el fallo se le suaviza ("casi"); a un adolescente se le
+            // informa sin adornos, que es lo que espera de una herramienta.
+            // El contenido educativo (quiz.afterLines) es el mismo en ambos.
+            val header = when {
+                ok && m.level.isPrimary -> "🎉 ¡Muy bien!"
+                ok -> "✓ Correcto"
+                m.level.isPrimary -> "Casi. La respuesta era ${quiz.answer}."
+                else -> "La respuesta correcta era ${quiz.answer}."
+            }
             FeedbackBox(ok, (listOf(header) + quiz.afterLines).joinToString("\n"))
 
             quiz.exampleSentence?.let { sentence ->
