@@ -461,8 +461,25 @@ private fun MultipleChoiceStage(
     }
 
     Column(Modifier.fillMaxSize()) {
-        StageBar(title, accent, quiz, ctx) { showHelp = true }
-        ProgressIndicator(windowHits, window, accent)
+        // En dos paneles (horizontal) la altura es el recurso escaso y la
+        // cabecera llegaba a comerse la mitad de la pantalla. Ahí el título de
+        // etapa sobra —la pestaña activa ya dice de qué materia se trata— y el
+        // progreso comparte fila con los controles: dos filas menos de adorno.
+        if (m.mode == LayoutMode.TWO_PANE) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(m.sectionGap.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(Modifier.weight(1f)) {
+                    ProgressIndicator(windowHits, window, accent)
+                }
+                StageControls(accent, quiz, ctx) { showHelp = true }
+            }
+        } else {
+            StageBar(title, accent, quiz, ctx) { showHelp = true }
+            ProgressIndicator(windowHits, window, accent)
+        }
         Spacer(Modifier.size(m.sectionGap.dp))
 
         if (m.mode == LayoutMode.TWO_PANE) {
@@ -533,6 +550,24 @@ private fun StageBar(
             maxLines = 2,
             modifier = Modifier.weight(1f)
         )
+        StageControls(accent, quiz, ctx, onHelp)
+    }
+}
+
+/**
+ * Audio y ayuda. Son controles SECUNDARIOS: área táctil cómoda, pero sin
+ * competir con la pregunta. Van aparte de [StageBar] porque en horizontal se
+ * reubican junto al progreso para ahorrar una fila entera.
+ */
+@Composable
+private fun StageControls(
+    accent: Color,
+    quiz: Quiz,
+    ctx: android.content.Context,
+    onHelp: () -> Unit
+) {
+    val m = LocalMetrics.current
+    Row(verticalAlignment = Alignment.CenterVertically) {
         quiz.speech?.let { speech ->
             IconButton(
                 onClick = { TtsManager.speak(ctx, speech, quiz.speechEnglish) },
