@@ -690,7 +690,7 @@ private fun AnswerArea(
     val ctx = LocalContext.current
 
     Column(Modifier.fillMaxWidth()) {
-        OptionsGrid(quiz.options, selected, result, onAnswer)
+        OptionsGrid(quiz.options, selected, result, quiz.answer, onAnswer)
 
         result?.let { ok ->
             Spacer(Modifier.size(m.itemGap.dp))
@@ -941,6 +941,8 @@ private fun OptionsGrid(
     options: List<String>,
     selected: String?,
     correctFlag: Boolean?,
+    /** Cuál es la correcta, para poder resaltarla cuando el alumno falla. */
+    answer: String,
     onClick: (String) -> Unit
 ) {
     val m = LocalMetrics.current
@@ -959,31 +961,76 @@ private fun OptionsGrid(
                     horizontalArrangement = Arrangement.spacedBy(m.itemGap.dp)
                 ) {
                     row.forEach { opt ->
-                        val container = when {
-                            selected == opt && correctFlag == true -> MaterialTheme.colorScheme.secondary
-                            selected == opt && correctFlag == false -> MaterialTheme.colorScheme.error
-                            else -> MaterialTheme.colorScheme.surface
-                        }
-                        Button(
+                        AnswerButton(
+                            text = opt,
+                            state = when {
+                                selected == opt && correctFlag == true -> AnswerState.CHOSEN_RIGHT
+                                selected == opt && correctFlag == false -> AnswerState.CHOSEN_WRONG
+                                // Al fallar se resalta CUÁL era la correcta: ver
+                                // la respuesta buena junto a la propia enseña
+                                // más que solo saber que uno se equivocó.
+                                correctFlag == false && opt == answer -> AnswerState.REVEALED
+                                else -> AnswerState.IDLE
+                            },
                             onClick = { onClick(opt) },
-                            shape = RoundedCornerShape(m.corner.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = container),
-                            contentPadding = PaddingValues(
-                                vertical = m.optionVPad.dp,
-                                horizontal = m.itemGap.dp
-                            ),
-                            modifier = Modifier
-                                .weight(1f)
-                                .heightIn(min = m.minTouch.dp)
-                        ) {
-                            OptionContent(opt)
-                        }
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                     // Rellena el hueco si la última fila va incompleta.
                     repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
         }
+    }
+}
+
+/** En qué situación está un botón de respuesta. */
+private enum class AnswerState {
+    /** Sin responder todavía, o no elegida. */
+    IDLE,
+    /** La eligió y era correcta. */
+    CHOSEN_RIGHT,
+    /** La eligió y era incorrecta. */
+    CHOSEN_WRONG,
+    /** No la eligió, pero era la correcta: se resalta para que la vea. */
+    REVEALED
+}
+
+/**
+ * Botón de respuesta. Encapsula estado visual, forma, área táctil y contenido
+ * (imagen, dibujo o texto), para que añadir un tipo de ejercicio nuevo no
+ * obligue a repetir toda esta lógica.
+ *
+ * El contenido se adapta solo: si hay imagen real para esa palabra la usa, si
+ * no cae al emoji, y si es texto lo escribe. Ver [OptionContent].
+ */
+@Composable
+private fun AnswerButton(
+    text: String,
+    state: AnswerState,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val m = LocalMetrics.current
+    val esquema = MaterialTheme.colorScheme
+
+    val container = when (state) {
+        AnswerState.CHOSEN_RIGHT -> esquema.secondary
+        AnswerState.CHOSEN_WRONG -> esquema.error
+        // La correcta no elegida se marca en verde translúcido: se distingue de
+        // la que sí se pulsó, sin gritar tanto como un acierto propio.
+        AnswerState.REVEALED -> esquema.secondary.copy(alpha = 0.35f)
+        AnswerState.IDLE -> esquema.surface
+    }
+
+    Button(
+        onClick = onClick,
+        shape = RoundedCornerShape(m.corner.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = container),
+        contentPadding = PaddingValues(vertical = m.optionVPad.dp, horizontal = m.itemGap.dp),
+        modifier = modifier.heightIn(min = m.minTouch.dp)
+    ) {
+        OptionContent(text)
     }
 }
 
