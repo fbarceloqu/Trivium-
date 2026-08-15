@@ -225,9 +225,30 @@ fun KioskScreen(
                     .align(Alignment.TopCenter)
                     .padding(m.pagePad.dp)
             ) {
-                Header(profile.name, onParentAccess)
-                Spacer(Modifier.size(m.sectionGap.dp))
-                StepIndicator(stage)
+                // En horizontal el saludo no merece una fila entera: comparte
+                // con las pestañas y el candado. Se recupera casi el 10% de la
+                // altura útil, que es mucho cuando solo hay 760dp.
+                if (m.mode == LayoutMode.TWO_PANE) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(m.sectionGap.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Hola, ${profile.name} 👋",
+                            fontSize = m.greeting.sp,
+                            lineHeight = m.lineHeight(m.greeting).sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
+                        )
+                        StepIndicator(stage, Modifier.weight(1f))
+                        LockButton(onParentAccess)
+                    }
+                } else {
+                    Header(profile.name, onParentAccess)
+                    Spacer(Modifier.size(m.sectionGap.dp))
+                    StepIndicator(stage)
+                }
                 Spacer(Modifier.size(m.sectionGap.dp))
 
                 // ZONA DEL EJERCICIO: se queda con todo el espacio restante.
@@ -336,24 +357,28 @@ private fun Header(name: String, onParentAccess: () -> Unit) {
                 maxLines = 1
             )
         }
-        IconButton(
-            onClick = onParentAccess,
-            modifier = Modifier.size(m.minTouch.dp)
-        ) {
-            Icon(
-                Icons.Filled.Lock,
-                contentDescription = "Acceso de padres",
-                modifier = Modifier.size((m.actionIcon * 0.8f).dp)
-            )
-        }
+        LockButton(onParentAccess)
+    }
+}
+
+/** Botón de acceso parental. Aparte para poder reubicarlo en horizontal. */
+@Composable
+private fun LockButton(onParentAccess: () -> Unit) {
+    val m = LocalMetrics.current
+    IconButton(onClick = onParentAccess, modifier = Modifier.size(m.minTouch.dp)) {
+        Icon(
+            Icons.Filled.Lock,
+            contentDescription = "Acceso de padres",
+            modifier = Modifier.size((m.actionIcon * 0.8f).dp)
+        )
     }
 }
 
 @Composable
-private fun StepIndicator(stage: Stage) {
+private fun StepIndicator(stage: Stage, modifier: Modifier = Modifier) {
     val m = LocalMetrics.current
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(m.itemGap.dp)
     ) {
         Chip("Mate", stage == Stage.MATH, Modifier.weight(1f))
