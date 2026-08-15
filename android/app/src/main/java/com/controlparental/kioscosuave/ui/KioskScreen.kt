@@ -466,18 +466,30 @@ private fun MultipleChoiceStage(
         Spacer(Modifier.size(m.sectionGap.dp))
 
         if (m.mode == LayoutMode.TWO_PANE) {
+            // El reparto depende del CONTENIDO, no es 50/50 fijo: una pregunta
+            // de solo texto no necesita media pantalla, y estirarla dejaba una
+            // tarjeta casi vacía. Con dibujo la izquierda manda; sin dibujo
+            // cede ancho a las respuestas y la tarjeta se ajusta al texto.
+            val tieneDibujo = quiz.question.split("\n").any { isEmojiLine(it) }
             Row(
                 modifier = Modifier.fillMaxWidth().weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(m.sectionGap.dp)
             ) {
-                Column(Modifier.weight(1f).fillMaxHeight()) {
+                Column(
+                    modifier = Modifier.weight(if (tieneDibujo) 1f else 0.75f).fillMaxHeight(),
+                    verticalArrangement = if (tieneDibujo) Arrangement.Top else Arrangement.Center
+                ) {
                     InstructionText(quiz.instruction)
-                    QuestionCard(quiz.question, Modifier.fillMaxWidth().weight(1f))
+                    QuestionCard(
+                        quiz.question,
+                        if (tieneDibujo) Modifier.fillMaxWidth().weight(1f) else Modifier.fillMaxWidth(),
+                        fill = tieneDibujo
+                    )
                 }
                 // Respuestas + retroalimentación se desplazan si hace falta,
                 // pero el botón de continuar va FUERA del scroll: es la acción
                 // que siempre debe estar a un toque de distancia.
-                Column(Modifier.weight(1f).fillMaxHeight()) {
+                Column(Modifier.weight(if (tieneDibujo) 1f else 1.25f).fillMaxHeight()) {
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -758,7 +770,16 @@ private fun imageResFor(emoji: String): Int? {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun QuestionCard(text: String, modifier: Modifier = Modifier) {
+private fun QuestionCard(
+    text: String,
+    modifier: Modifier = Modifier,
+    /**
+     * Si la tarjeta debe ocupar todo el alto que le den. Con dibujos sí: hacen
+     * falta las dos dimensiones para calcular su tamaño. Con solo texto no,
+     * porque estirarla deja una tarjeta con mucho aire muerto.
+     */
+    fill: Boolean = true
+) {
     val m = LocalMetrics.current
     val density = LocalDensity.current
 
@@ -767,7 +788,10 @@ private fun QuestionCard(text: String, modifier: Modifier = Modifier) {
         shape = RoundedCornerShape(m.corner.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        BoxWithConstraints(Modifier.fillMaxSize().padding(m.cardPad.dp)) {
+        BoxWithConstraints(
+            (if (fill) Modifier.fillMaxSize() else Modifier.fillMaxWidth())
+                .padding(m.cardPad.dp)
+        ) {
             val availW = maxWidth.value.takeIf { it.isFinite() } ?: m.contentMaxWidth
             val availH = maxHeight.value.takeIf { it.isFinite() } ?: (m.heightDp * 0.4f)
 
@@ -781,8 +805,7 @@ private fun QuestionCard(text: String, modifier: Modifier = Modifier) {
             else ((availH - proseH) / drawLines.size).coerceAtLeast(m.countImageMin)
 
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
+                modifier = (if (fill) Modifier.fillMaxSize() else Modifier.fillMaxWidth())
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
