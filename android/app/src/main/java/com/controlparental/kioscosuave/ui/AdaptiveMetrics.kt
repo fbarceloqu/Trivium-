@@ -115,6 +115,13 @@ object Adaptive {
     const val REF_W = 600f
     const val REF_H = 900f
 
+    /**
+     * Altura de referencia en dos paneles. Menor que [REF_H] porque el
+     * contenido se reparte en dos columnas: la pregunta ya no va encima de las
+     * respuestas, así que cada una necesita bastante menos altura.
+     */
+    const val REF_H_TWO_PANE = 560f
+
     /** Mínimo táctil recomendado por las guías de accesibilidad de Android. */
     const val MIN_TOUCH = 48f
 
@@ -169,9 +176,14 @@ object Adaptive {
      * dimensión escasa, que es justo lo que fallaba antes.
      */
     fun scaleOf(widthDp: Float, heightDp: Float, mode: LayoutMode): Float {
-        // En dos paneles cada columna dispone de la mitad del ancho.
+        // En dos paneles cada columna dispone de la mitad del ancho...
         val usableW = if (mode == LayoutMode.TWO_PANE) widthDp / 2f else widthDp
-        return min(usableW / REF_W, heightDp / REF_H).coerceIn(SCALE_MIN, SCALE_MAX)
+        // ...pero también necesita MENOS altura, porque el contenido se reparte
+        // en horizontal en vez de apilarse. Exigirle los mismos 900dp que al
+        // modo apilado penalizaba de más: en una tablet de 10" en horizontal la
+        // escala salía 0.84 y todo se veía pequeño con media pantalla vacía.
+        val refH = if (mode == LayoutMode.TWO_PANE) REF_H_TWO_PANE else REF_H
+        return min(usableW / REF_W, heightDp / refH).coerceIn(SCALE_MIN, SCALE_MAX)
     }
 
     /**
