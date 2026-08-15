@@ -492,9 +492,14 @@ private fun MultipleChoiceStage(
                 modifier = Modifier.fillMaxWidth().weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(m.sectionGap.dp)
             ) {
+                // Ambas columnas arrancan ARRIBA. Centrarlas dejaba ~200dp
+                // muertos encima en una tablet de 760dp de alto: el ejercicio
+                // aparecía flotando a media pantalla, lejos de las pestañas.
+                // Alineado arriba, el espacio sobrante queda abajo, que es
+                // donde no estorba.
                 Column(
                     modifier = Modifier.weight(if (tieneDibujo) 1f else 0.75f).fillMaxHeight(),
-                    verticalArrangement = if (tieneDibujo) Arrangement.Top else Arrangement.Center
+                    verticalArrangement = Arrangement.Top
                 ) {
                     InstructionText(quiz.instruction)
                     QuestionCard(
@@ -517,7 +522,7 @@ private fun MultipleChoiceStage(
                     modifier = Modifier
                         .weight(if (tieneDibujo) 1f else 1.25f)
                         .fillMaxHeight(),
-                    verticalArrangement = Arrangement.Center
+                    verticalArrangement = Arrangement.Top
                 ) {
                     Column(
                         modifier = Modifier
