@@ -90,6 +90,16 @@ data class AdaptiveMetrics(
     // --- componentes ---
     val actionIcon: Float,
     val minTouch: Float,
+    /**
+     * Alto mínimo de un botón de respuesta.
+     *
+     * En dos paneles crece con la altura disponible para que el ejercicio
+     * OCUPE la pantalla en vez de quedar apelotonado arriba con dos tercios
+     * vacíos. En una tablet de 10" en horizontal salen botones de ~120dp:
+     * áreas táctiles muy cómodas que además llenan el hueco sin inventar
+     * contenido. En apilado se queda en [minTouch], que ahí ya funciona.
+     */
+    val answerMinHeight: Float,
     /** Alto de las pestanas de materia. Mas compacto que [minTouch]: son
      *  botones muy anchos, asi que no necesitan 48dp de alto para ser comodos. */
     val tabHeight: Float,
@@ -200,6 +210,15 @@ object Adaptive {
         val scale = scaleOf(widthDp, heightDp, mode)
         val big = level.isPrimary
         val floor = if (big) TEXT_FLOOR_BIG else TEXT_FLOOR
+        val touch = max((if (big) 56f else 48f) * scale, MIN_TOUCH)
+
+        // Reparto vertical en dos paneles: descontada la cabecera (~200dp entre
+        // saludo, pestañas y progreso), lo que queda se reparte entre las dos
+        // filas de respuestas, la retroalimentación y el botón de continuar.
+        // El divisor 4.5 deja margen para esos dos últimos.
+        val answerH = if (mode == LayoutMode.TWO_PANE)
+            ((heightDp - 200f) / 4.5f).coerceIn(touch, 150f)
+        else touch
 
         // Texto: escala con piso de legibilidad.
         fun t(base: Float) = max(base * scale, floor)
@@ -231,7 +250,8 @@ object Adaptive {
             buttonLabel = t(20f),
 
             actionIcon = d(34f, 24f),
-            minTouch = max(56f * scale, MIN_TOUCH),
+            minTouch = touch,
+            answerMinHeight = answerH,
             tabHeight = max(42f * scale, 38f),
             optionVPad = d(18f, 10f),
             buttonVPad = d(16f, 10f),
@@ -273,7 +293,8 @@ object Adaptive {
             buttonLabel = t(15f),
 
             actionIcon = d(26f, 20f),
-            minTouch = max(48f * scale, MIN_TOUCH),
+            minTouch = touch,
+            answerMinHeight = answerH,
             tabHeight = max(38f * scale, 34f),
             optionVPad = d(12f, 8f),
             buttonVPad = d(12f, 8f),

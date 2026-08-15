@@ -1069,7 +1069,9 @@ private fun AnswerButton(
         shape = RoundedCornerShape(m.corner.dp),
         colors = ButtonDefaults.buttonColors(containerColor = container),
         contentPadding = PaddingValues(vertical = m.optionVPad.dp, horizontal = m.itemGap.dp),
-        modifier = modifier.heightIn(min = m.minTouch.dp)
+        // answerMinHeight crece con la altura disponible: en tablet horizontal
+        // los botones se estiran hasta ocupar el hueco que antes quedaba vacío.
+        modifier = modifier.heightIn(min = m.answerMinHeight.dp)
     ) {
         OptionContent(text)
     }
