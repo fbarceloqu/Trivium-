@@ -506,12 +506,23 @@ private fun MultipleChoiceStage(
                 // Respuestas + retroalimentación se desplazan si hace falta,
                 // pero el botón de continuar va FUERA del scroll: es la acción
                 // que siempre debe estar a un toque de distancia.
-                Column(Modifier.weight(if (tieneDibujo) 1f else 1.25f).fillMaxHeight()) {
+                // Respuestas, retroalimentación y botón se centran COMO GRUPO.
+                // Antes el botón iba anclado al fondo y en una pantalla alta
+                // quedaba descolgado, lejos de la explicación que lo motiva.
+                //
+                // weight(1f, fill = false) es la clave: el contenido toma solo
+                // lo que necesita —y se desplaza si algún día no cabe—, en vez
+                // de estirarse hasta empujar el botón al borde.
+                Column(
+                    modifier = Modifier
+                        .weight(if (tieneDibujo) 1f else 1.25f)
+                        .fillMaxHeight(),
+                    verticalArrangement = Arrangement.Center
+                ) {
                     Column(
                         modifier = Modifier
-                            .weight(1f)
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.Center
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState())
                     ) {
                         AnswerArea(quiz, selected, result, onAnswer)
                     }
