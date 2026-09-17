@@ -408,6 +408,17 @@ object ChallengeEngine {
     // el niño practica en inglés (ver starterVocab más arriba).
     private val countEmojis = starterVocab.mapNotNull { it.emoji.takeIf(String::isNotBlank) }.distinct()
 
+    // El mismo objeto puede aparecer varias veces DENTRO de una pregunta para
+    // que se pueda contar. Entre preguntas, en cambio, se rota para que una
+    // sesión no parezca una fila interminable de la misma imagen.
+    private var lastCountEmoji: String? = null
+    private fun nextCountEmoji(excluding: Set<String> = emptySet()): String {
+        val choices = countEmojis.filter { it != lastCountEmoji && it !in excluding }
+            .ifEmpty { countEmojis.filter { it !in excluding } }
+            .ifEmpty { countEmojis }
+        return choices.random().also { lastCountEmoji = it }
+    }
+
     private val EX_COUNT = WorkedExample(
         "Ejemplo: contar",
         listOf(
@@ -420,7 +431,7 @@ object ChallengeEngine {
 
     private fun countObjects(): MathQuestion {
         val n = Random.nextInt(2, 10)
-        val e = countEmojis.random()
+        val e = nextCountEmoji()
         val row = List(n) { e }.joinToString(" ")
         return MathQuestion(
             "¿Cuántos hay?\n\n$row",
@@ -430,7 +441,7 @@ object ChallengeEngine {
 
     private fun addObjects(): MathQuestion {
         val a = Random.nextInt(1, 5); val b = Random.nextInt(1, 5); val ans = a + b
-        val e = countEmojis.random()
+        val e = nextCountEmoji()
         val rowA = List(a) { e }.joinToString(" ")
         val rowB = List(b) { e }.joinToString(" ")
         return MathQuestion(
@@ -454,7 +465,7 @@ object ChallengeEngine {
     private fun subObjects(): MathQuestion {
         val a = Random.nextInt(3, 10); val b = Random.nextInt(1, minOf(a, 4))
         val ans = a - b
-        val e = countEmojis.random()
+        val e = nextCountEmoji()
         val row = List(a) { e }.joinToString(" ")
         val backwards = (a downTo ans).joinToString("... ")
         return MathQuestion(
@@ -510,9 +521,8 @@ object ChallengeEngine {
 
     /** Comparación sí/no: ¿hay más/menos X que Y? (dos filas de dibujos). */
     private fun moreOrLess(): MathQuestion {
-        val e1 = countEmojis.random()
-        var e2 = countEmojis.random()
-        while (e2 == e1) e2 = countEmojis.random()
+        val e1 = nextCountEmoji()
+        val e2 = nextCountEmoji(setOf(e1))
         val n1 = Random.nextInt(1, 6); var n2 = Random.nextInt(1, 6)
         while (n2 == n1) n2 = Random.nextInt(1, 6)
         val askMore = Random.nextBoolean()
