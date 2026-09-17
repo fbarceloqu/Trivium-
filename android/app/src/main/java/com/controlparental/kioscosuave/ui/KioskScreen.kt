@@ -74,6 +74,7 @@ import com.controlparental.kioscosuave.ProgressSync
 import com.controlparental.kioscosuave.ReadingPassage
 import com.controlparental.kioscosuave.SummaryResult
 import com.controlparental.kioscosuave.StageProgressStore
+import com.controlparental.kioscosuave.StageAttempt
 import com.controlparental.kioscosuave.MemoryStore
 import com.controlparental.kioscosuave.TtsManager
 import com.controlparental.kioscosuave.curriculum.Curriculum
@@ -317,7 +318,7 @@ fun KioskScreen(
                                 else "Inglés · Lección de hoy: ${ChallengeEngine.todaysEnglishUnitTitle(advanced)}",
                                 accent = MaterialTheme.colorScheme.secondary,
                                 window = if (spellingFocus != null) 10 else config.englishWindow,
-                                correctTarget = if (spellingFocus != null) 30 else config.englishWindow,
+                                correctTarget = spellingFocus?.correctTarget ?: config.englishWindow,
                                 progressKey = spellingFocus?.let {
                                     "english_spelling_${it.letter.uppercaseChar()}"
                                 },
@@ -486,6 +487,11 @@ private fun MultipleChoiceStage(
             progressKey?.let { addAll(StageProgressStore.load(ctx, it)) }
         }
     } // aciertos/fallos
+    val attemptLog = remember(progressKey) {
+        mutableStateListOf<StageAttempt>().apply {
+            progressKey?.let { addAll(StageProgressStore.loadAttempts(ctx, it)) }
+        }
+    }
     var quiz by remember { mutableStateOf(initial()) }
     var selected by remember { mutableStateOf<String?>(null) }
     var result by remember { mutableStateOf<Boolean?>(null) }
@@ -512,7 +518,15 @@ private fun MultipleChoiceStage(
         val ok = opt == quiz.answer
         result = ok
         history.add(ok)
+        attemptLog += StageAttempt(
+            question = quiz.question,
+            selected = opt,
+            answer = quiz.answer,
+            correct = ok,
+            explanation = quiz.afterLines.firstOrNull().orEmpty()
+        )
         progressKey?.let { StageProgressStore.save(ctx, it, history) }
+        progressKey?.let { StageProgressStore.saveAttempts(ctx, it, attemptLog) }
         // Alimenta la memoria: al fallar se guarda CUÁL opción incorrecta
         // eligió, porque los distractores son errores típicos concretos.
         onResult(quiz, ok, if (ok) null else opt)
@@ -523,6 +537,7 @@ private fun MultipleChoiceStage(
     val onNext: () -> Unit = {
         if (passed) {
             ProgressSync.reportStage(ctx, stageKey, history.count { it }, history.size)
+            ProgressSync.reportSession(ctx, stageKey, attemptLog)
             progressKey?.let { StageProgressStore.clear(ctx, it) }
             onDone()
         } else {

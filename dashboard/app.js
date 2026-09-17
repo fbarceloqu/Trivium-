@@ -165,4 +165,80 @@ async function showDetail(childId, c) {
     `;
     body.appendChild(tr);
   }
+
+  renderLearningInsight(childId);
+  renderSessions(childId);
+}
+
+function skillLabel(id) {
+  return String(id)
+    .replace(/^sec1\./, "")
+    .replace(/[._]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+async function renderLearningInsight(childId) {
+  const box = $("learning-insight");
+  try {
+    const snap = await getDocs(collection(db, "children", childId, "skills"));
+    const practiced = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      .filter((s) => (s.practices ?? 0) > 0)
+      .sort((a, b) => (a.accuracy ?? 0) - (b.accuracy ?? 0));
+    if (!practiced.length) {
+      box.textContent = "Aún no hay suficientes resultados por habilidad. Trivium empezará a detectar fortalezas y refuerzos conforme practique.";
+      return;
+    }
+    const weak = practiced[0];
+    const strong = practiced[practiced.length - 1];
+    const weakPct = Math.round((weak.accuracy ?? 0) * 100);
+    const strongPct = Math.round((strong.accuracy ?? 0) * 100);
+    const action = weakPct < 60
+      ? "Conviene practicarlo pronto con ejemplos, ayuda y formatos más visuales."
+      : weakPct < 80
+        ? "Está en progreso: Trivium debe repetirlo de forma variada antes de espaciarlo."
+        : "Va bien: puede espaciarse y presentarse en problemas de aplicación.";
+    box.textContent = `Prioridad actual: ${skillLabel(weak.id)} (${weakPct}%). Fortaleza: ${skillLabel(strong.id)} (${strongPct}%). ${action}`;
+  } catch (err) {
+    console.error(err);
+    box.textContent = "No se pudo cargar la memoria de aprendizaje.";
+  }
+}
+
+async function renderSessions(childId) {
+  const box = $("sessions-list");
+  box.innerHTML = "<p class='muted' style='font-size:13px'>Cargando…</p>";
+  try {
+    const days = await getDocs(collection(db, "children", childId, "days"));
+    const sessions = [];
+    for (const day of days.docs) {
+      const nested = await getDocs(collection(db, "children", childId, "days", day.id, "sessions"));
+      nested.forEach((s) => sessions.push({ id: s.id, day: day.id, ...s.data() }));
+    }
+    sessions.sort((a, b) => (b.id > a.id ? 1 : -1));
+    box.innerHTML = "";
+    if (!sessions.length) {
+      box.innerHTML = "<p class='muted' style='font-size:13px'>Aún no hay sesiones terminadas.</p>";
+      return;
+    }
+    sessions.slice(0, 8).forEach((session) => {
+      const details = document.createElement("details");
+      details.className = "guide";
+      const summary = document.createElement("summary");
+      const pct = Math.round((session.accuracy ?? 0) * 100);
+      summary.textContent = `${session.day} · ${session.stage} · ${session.correct ?? 0}/${session.attempts ?? 0} correctas (${pct}%)`;
+      details.appendChild(summary);
+      (session.exercises ?? []).forEach((exercise, i) => {
+        const row = document.createElement("div");
+        row.style.cssText = "border-top:1px solid var(--border); margin-top:10px; padding-top:10px; font-size:13px";
+        const question = document.createElement("div"); question.textContent = `${i + 1}. ${exercise.question}`;
+        const answer = document.createElement("div"); answer.textContent = `${exercise.correct ? "✓" : "✗"} Eligió: ${exercise.selected} · Correcta: ${exercise.answer}`;
+        const explanation = document.createElement("div"); explanation.className = "muted"; explanation.textContent = exercise.explanation || "";
+        row.append(question, answer, explanation); details.appendChild(row);
+      });
+      box.appendChild(details);
+    });
+  } catch (err) {
+    console.error(err);
+    box.innerHTML = "<p class='muted' style='font-size:13px'>No se pudieron cargar las sesiones.</p>";
+  }
 }

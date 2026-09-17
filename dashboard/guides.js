@@ -85,6 +85,7 @@ async function onSubmit(e) {
   const mode = document.querySelector('input[name="g-mode"]:checked').value;
   const topics = $("g-topics").value.split("\n").map((t) => t.trim()).filter(Boolean);
   const examDate = $("g-date").value;
+  const correctTarget = Math.max(10, Math.min(100, Number($("g-correct-target").value) || 30));
 
   if (topics.length === 0) {
     err.textContent = "Escribe al menos un tema: es lo que Trivium usa para elegir los ejercicios.";
@@ -123,6 +124,7 @@ async function onSubmit(e) {
       mode,
       examDate: mode === "EXAM_PREP" ? examDate : null,
       topics,
+      correctTarget,
       fileUrl,
       fileName,
       paused: false,
@@ -240,6 +242,9 @@ function render(id, g, dominio) {
       </div>
     </div>
     <div class="meta" style="margin-top:8px">${(g.topics ?? []).join(" · ")}</div>
+    ${String((g.topics ?? []).join(" ")).toLowerCase().includes("spelling")
+      ? `<div class="meta" style="margin-top:6px">Meta del refuerzo: <b>${g.correctTarget ?? 30} respuestas correctas</b></div>`
+      : ""}
     <div class="bars">${barras}</div>
     ${takeaway}
   `;

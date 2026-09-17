@@ -147,18 +147,23 @@ object ProgressSync {
         withAuth {
             childDoc(ctx).collection("guides").get()
                 .addOnSuccessListener { docs ->
-                    val text = docs.documents.asSequence()
+                    val focus = docs.documents.asSequence()
                         .filter { it.getString("subject") == "ENGLISH" }
                         .filter { it.getBoolean("paused") != true }
-                        .flatMap { doc -> sequence {
-                            yield(doc.getString("title") ?: "")
-                            doc.get("topics")
-                                ?.let { it as? List<*> }
-                                ?.filterIsInstance<String>()
-                                ?.forEach(::yield)
-                        } }
-                        .toList()
-                    val focus = EnglishFocusStore.detect(text)
+                        .mapNotNull { doc ->
+                            val text = buildList {
+                                add(doc.getString("title") ?: "")
+                                doc.get("topics")
+                                    ?.let { it as? List<*> }
+                                    ?.filterIsInstance<String>()
+                                    ?.forEach(::add)
+                            }
+                            EnglishFocusStore.detect(
+                                text,
+                                (doc.getLong("correctTarget") ?: 30L).toInt()
+                            )
+                        }
+                        .firstOrNull()
                     EnglishFocusStore.save(ctx, focus)
                     onResult(focus)
                 }
@@ -179,6 +184,30 @@ object ProgressSync {
                 ),
                 SetOptions.merge()
             ).addOnFailureListener { Log.w(TAG, "reportReading: ${it.message}") }
+        }
+    }
+
+    /** Guarda el resumen de una sesión para que el padre vea qué contestó. */
+    fun reportSession(ctx: Context, stage: String, attempts: List<StageAttempt>) {
+        if (attempts.isEmpty()) return
+        val correct = attempts.count { it.correct }
+        withAuth {
+            dayDoc(ctx).collection("sessions").document("${System.currentTimeMillis()}_$stage").set(
+                mapOf(
+                    "stage" to stage,
+                    "correct" to correct,
+                    "attempts" to attempts.size,
+                    "accuracy" to correct.toFloat() / attempts.size,
+                    "completedAt" to FieldValue.serverTimestamp(),
+                    "exercises" to attempts.map { a -> mapOf(
+                        "question" to a.question.take(500),
+                        "selected" to a.selected.take(200),
+                        "answer" to a.answer.take(200),
+                        "correct" to a.correct,
+                        "explanation" to a.explanation.take(500)
+                    )
+                )
+            ).addOnFailureListener { Log.w(TAG, "reportSession($stage): ${it.message}") }
         }
     }
 

@@ -196,6 +196,19 @@
         </table>
       </div>
 
+      <div class="card" style="margin-top:16px;">
+        <h2>🧠 Memoria de aprendizaje</h2>
+        <div id="learning-insight" class="muted" style="margin-top:8px;">Cargando análisis…</div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <h2>📝 Últimas sesiones</h2>
+        <p class="muted" style="font-size:13px; margin-top:6px;">
+          Preguntas realizadas, respuesta elegida, solución y explicación.
+        </p>
+        <div id="sessions-list" style="margin-top:12px;"></div>
+      </div>
+
       <!-- Guías y material de estudio -->
       <div class="card" style="margin-top:16px;">
         <div class="section-head">
@@ -246,9 +259,12 @@
             <textarea id="g-topics" rows="4"
               placeholder="Un tema por línea. Por ejemplo:&#10;Repasar fracciones equivalentes&#10;Comparar fracciones&#10;Ángulos complementarios"></textarea>
           </label>
+          <label id="g-target-wrap">Aciertos correctos requeridos para un refuerzo
+            <input id="g-correct-target" type="number" min="10" max="100" value="30" inputmode="numeric" />
+          </label>
           <p class="muted" style="font-size:12px; margin:-4px 0 12px;">
-            Escríbelos tú por ahora. Cuando el análisis automático esté listo,
-            Trivium los sacará del archivo y solo tendrás que revisarlos.
+            Solo se usa en un refuerzo como <b>Spelling B</b>. Por ejemplo: 30
+            significa 30 respuestas correctas acumuladas; equivocarse no borra avance.
           </p>
 
           <div class="form-actions">

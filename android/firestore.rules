@@ -46,6 +46,12 @@ service cloud.firestore {
         allow read: if isParent() || isTablet();
         allow write: if isParent();
       }
+      // Detalle de una sesión: preguntas, respuesta elegida y explicación.
+      // La tablet lo escribe; únicamente los padres autorizados pueden leerlo.
+      match /days/{day}/sessions/{sessionId} {
+        allow read: if isParent();
+        allow write: if isTablet();
+      }
     }
 
     // Todo lo demás, bloqueado.
