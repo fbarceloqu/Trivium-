@@ -214,6 +214,7 @@ object ProgressSync {
                         "correct" to a.correct,
                         "explanation" to a.explanation.take(500)
                     )
+                    }
                 )
             ).addOnFailureListener { Log.w(TAG, "reportSession($stage): ${it.message}") }
         }
