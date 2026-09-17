@@ -151,6 +151,14 @@ object ProgressSync {
                         .filter { it.getString("subject") == "ENGLISH" }
                         .filter { it.getBoolean("paused") != true }
                         .mapNotNull { doc ->
+                            val target = (doc.getLong("correctTarget") ?: 30L).toInt()
+                            val weeklyWords = doc.get("spellingWords")
+                                ?.let { it as? List<*> }
+                                ?.filterIsInstance<String>()
+                                .orEmpty()
+                            // Una lista explícita del panel siempre tiene
+                            // prioridad sobre el antiguo formato "Spelling B".
+                            EnglishFocusStore.withWords(weeklyWords, target)?.let { return@mapNotNull it }
                             val text = buildList {
                                 add(doc.getString("title") ?: "")
                                 doc.get("topics")
@@ -160,7 +168,7 @@ object ProgressSync {
                             }
                             EnglishFocusStore.detect(
                                 text,
-                                (doc.getLong("correctTarget") ?: 30L).toInt()
+                                target
                             )
                         }
                         .firstOrNull()

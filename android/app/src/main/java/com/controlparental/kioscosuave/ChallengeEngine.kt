@@ -28,7 +28,9 @@ data class EnglishExercise(
     val options: List<String>,
     val correctAnswer: String,
     val explanation: String,
-    val phonetic: String          // pronunciación del verbo clave
+    val phonetic: String,         // pronunciación del verbo clave
+    /** Imagen educativa opcional; se resuelve por nombre en drawable-nodpi. */
+    val visualWord: String? = null
 )
 
 data class ReadingPassage(
@@ -1502,9 +1504,16 @@ object ChallengeEngine {
      * identificar una palabra y deletrear. Así el niño practica la B sin ver
      * diez veces la misma plantilla.
      */
-    private fun spellingEnglish(letter: Char): EnglishExercise {
-        val upper = letter.uppercaseChar()
-        val word = spellingWords[upper]?.random() ?: "ball"
+    private fun spellingEnglish(letter: Char): EnglishExercise =
+        spellingEnglish(spellingWords[letter.uppercaseChar()] ?: listOf("ball"))
+
+    /**
+     * Una lista enviada por el padre es más específica que una letra: la
+     * práctica de esta semana puede mezclar sand, top y bee, por ejemplo.
+     */
+    private fun spellingEnglish(words: List<String>): EnglishExercise {
+        val word = words.random()
+        val upper = word.first().uppercaseChar()
         val wrongLetters = ('A'..'Z').filter { it != upper }.shuffled().take(3)
         return when ((0..3).random()) {
             0 -> EnglishExercise(
@@ -1513,7 +1522,8 @@ object ChallengeEngine {
                 (wrongLetters.map(Char::toString) + upper.toString()).shuffled(),
                 upper.toString(),
                 "'$word' empieza con la letra $upper.",
-                "/${upper.lowercaseChar()}/"
+                "/${upper.lowercaseChar()}/",
+                word
             )
             1 -> {
                 val ending = word.drop(1)
@@ -1523,7 +1533,8 @@ object ChallengeEngine {
                     (wrongLetters.map(Char::toString) + upper.toString()).shuffled(),
                     upper.toString(),
                     "${upper}${ending} forma la palabra '$word'.",
-                    "/${upper.lowercaseChar()}/"
+                    "/${upper.lowercaseChar()}/",
+                    word
                 )
             }
             2 -> {
@@ -1532,7 +1543,7 @@ object ChallengeEngine {
                     "Busca una palabra que empiece con $upper.",
                     "¿Cuál comienza con la letra $upper?",
                     (others + word).shuffled(), word,
-                    "'$word' comienza con $upper.", "/${upper.lowercaseChar()}/"
+                    "'$word' comienza con $upper.", "/${upper.lowercaseChar()}/", word
                 )
             }
             else -> EnglishExercise(
@@ -1541,7 +1552,8 @@ object ChallengeEngine {
                 spellingChoices(word),
                 spell(word),
                 "La palabra '$word' se deletrea ${spell(word)}.",
-                "/${upper.lowercaseChar()}/"
+                "/${upper.lowercaseChar()}/",
+                word
             )
         }
     }
@@ -1565,13 +1577,16 @@ object ChallengeEngine {
         starter: Boolean = false,
         exclude: String? = null,
         advanced: Boolean = false,
-        spellingLetter: Char? = null
+        spellingLetter: Char? = null,
+        spellingWords: List<String>? = null
     ): EnglishExercise {
-        if (spellingLetter != null) {
-            var ex = spellingEnglish(spellingLetter)
+        if (!spellingWords.isNullOrEmpty() || spellingLetter != null) {
+            fun nextSpelling() = spellingWords?.takeIf { it.isNotEmpty() }
+                ?.let(::spellingEnglish) ?: spellingEnglish(spellingLetter!!)
+            var ex = nextSpelling()
             var tries = 0
             while (exclude != null && ex.question == exclude && tries < 8) {
-                ex = spellingEnglish(spellingLetter); tries++
+                ex = nextSpelling(); tries++
             }
             return ex
         }

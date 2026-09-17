@@ -13,29 +13,45 @@ import org.json.JSONObject
  * practicando aunque se quede sin red. Una guía pausada o eliminada se limpia
  * al siguiente sincronizado exitoso.
  */
-data class EnglishFocus(val letter: Char, val correctTarget: Int = 30) {
-    val title: String get() = "Spelling ${letter.uppercaseChar()}"
+data class EnglishFocus(
+    val letter: Char? = null,
+    val words: List<String> = emptyList(),
+    val correctTarget: Int = 30
+) {
+    val title: String get() = if (words.isNotEmpty()) "Spelling · ${words.size} palabras"
+    else "Spelling ${letter?.uppercaseChar() ?: ""}".trim()
+    /** Clave estable para que el avance no se mezcle con otra lista semanal. */
+    val cacheKey: String get() = (words.ifEmpty { listOf(letter?.toString().orEmpty()) })
+        .joinToString("_").lowercase().replace(Regex("[^a-z0-9_]+"), "_").take(80)
 }
 
 object EnglishFocusStore {
     private const val PREFS = "TriviumEnglishFocus"
     private const val KEY_LETTER = "spelling_letter"
+    private const val KEY_WORDS = "spelling_words"
     private const val KEY_TARGET = "correct_target"
 
-    fun load(ctx: Context): EnglishFocus? =
-        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString(KEY_LETTER, null)
+    fun load(ctx: Context): EnglishFocus? {
+        val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val words = wordsFromJson(prefs.getString(KEY_WORDS, null))
+        if (words.isNotEmpty()) return EnglishFocus(
+            words = words,
+            correctTarget = prefs.getInt(KEY_TARGET, 30).coerceIn(10, 100)
+        )
+        return prefs.getString(KEY_LETTER, null)
             ?.singleOrNull()
             ?.takeIf(Char::isLetter)
-            ?.let { EnglishFocus(it, ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .getInt(KEY_TARGET, 30).coerceIn(10, 100)) }
+            ?.let { EnglishFocus(letter = it, correctTarget = prefs.getInt(KEY_TARGET, 30).coerceIn(10, 100)) }
+    }
 
     fun save(ctx: Context, focus: EnglishFocus?) {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().apply {
             if (focus == null) {
-                remove(KEY_LETTER); remove(KEY_TARGET)
+                remove(KEY_LETTER); remove(KEY_WORDS); remove(KEY_TARGET)
             } else {
-                putString(KEY_LETTER, focus.letter.uppercaseChar().toString())
+                focus.letter?.let { putString(KEY_LETTER, it.uppercaseChar().toString()) }
+                    ?: remove(KEY_LETTER)
+                putString(KEY_WORDS, JSONArray(focus.words).toString())
                 putInt(KEY_TARGET, focus.correctTarget.coerceIn(10, 100))
             }
         }.apply()
@@ -50,8 +66,25 @@ object EnglishFocusStore {
             .map(::normalize)
             .mapNotNull { pattern.find(it)?.groupValues?.getOrNull(1)?.singleOrNull() }
             .firstOrNull()
-            ?.let { EnglishFocus(it, correctTarget.coerceIn(10, 100)) }
+            ?.let { EnglishFocus(letter = it, correctTarget = correctTarget.coerceIn(10, 100)) }
     }
+
+    /** Acepta únicamente palabras simples: evita guardar texto accidentalmente. */
+    fun withWords(words: Iterable<String>, correctTarget: Int = 30): EnglishFocus? {
+        val clean = words.map(::normalize)
+            .map { it.trim() }
+            .filter { it.matches(Regex("[a-z]{2,15}")) }
+            .distinct()
+            .take(20)
+            .toList()
+        return clean.takeIf { it.isNotEmpty() }
+            ?.let { EnglishFocus(words = it, correctTarget = correctTarget.coerceIn(10, 100)) }
+    }
+
+    private fun wordsFromJson(raw: String?): List<String> = try {
+        val a = JSONArray(raw ?: "[]")
+        withWords((0 until a.length()).map { a.optString(it) })?.words.orEmpty()
+    } catch (_: Exception) { emptyList() }
 
     private fun normalize(text: String): String =
         Normalizer.normalize(text.lowercase(), Normalizer.Form.NFD)

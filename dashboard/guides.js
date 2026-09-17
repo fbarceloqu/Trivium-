@@ -84,6 +84,12 @@ async function onSubmit(e) {
 
   const mode = document.querySelector('input[name="g-mode"]:checked').value;
   const topics = $("g-topics").value.split("\n").map((t) => t.trim()).filter(Boolean);
+  const spellingWords = $("g-spelling-words").value
+    .split(/[\n,]+/)
+    .map((w) => w.trim().toLowerCase())
+    .filter((w) => /^[a-z]{2,15}$/.test(w))
+    .filter((w, i, all) => all.indexOf(w) === i)
+    .slice(0, 20);
   const examDate = $("g-date").value;
   const correctTarget = Math.max(10, Math.min(100, Number($("g-correct-target").value) || 30));
 
@@ -124,6 +130,7 @@ async function onSubmit(e) {
       mode,
       examDate: mode === "EXAM_PREP" ? examDate : null,
       topics,
+      spellingWords,
       correctTarget,
       fileUrl,
       fileName,
@@ -244,6 +251,9 @@ function render(id, g, dominio) {
     <div class="meta" style="margin-top:8px">${(g.topics ?? []).join(" · ")}</div>
     ${String((g.topics ?? []).join(" ")).toLowerCase().includes("spelling")
       ? `<div class="meta" style="margin-top:6px">Meta del refuerzo: <b>${g.correctTarget ?? 30} respuestas correctas</b></div>`
+      : ""}
+    ${(g.spellingWords ?? []).length
+      ? `<div class="meta" style="margin-top:6px">Palabras: ${(g.spellingWords ?? []).join(" · ")}</div>`
       : ""}
     <div class="bars">${barras}</div>
     ${takeaway}

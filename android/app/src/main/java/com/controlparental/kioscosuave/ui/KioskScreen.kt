@@ -117,6 +117,7 @@ private data class Quiz(
     val speechEnglish: Boolean = false,
     val wordToSpeak: String? = null,     // palabra en inglés a pronunciar al responder
     val exampleSentence: String? = null, // oración de ejemplo con esa palabra
+    val visualWord: String? = null,      // recurso educativo opcional para spelling
     // Etiquetas de la memoria de aprendizaje: dicen QUÉ habilidad se está
     // practicando y con qué presentación, para poder registrar el resultado.
     val skillId: String? = null,
@@ -149,7 +150,7 @@ private fun EnglishExercise.toQuiz(starter: Boolean = false): Quiz {
     // Palabra a pronunciar al seleccionar una respuesta: en preescolar, una de
     // (pregunta, respuesta) siempre es la palabra en texto (la otra es el emoji);
     // en primaria/secundaria la respuesta correcta ya es la palabra/frase en inglés.
-    val word = if (starter) {
+    val word = visualWord ?: if (starter) {
         listOf(question, correctAnswer).firstOrNull { it.any(Char::isLetter) }
     } else correctAnswer
 
@@ -172,7 +173,8 @@ private fun EnglishExercise.toQuiz(starter: Boolean = false): Quiz {
         speech = if (questionIsText) stripEmoji(question) else instruction,
         speechEnglish = questionIsText,
         wordToSpeak = word,
-        exampleSentence = sentence
+        exampleSentence = sentence,
+        visualWord = visualWord
     )
 }
 
@@ -319,16 +321,15 @@ fun KioskScreen(
                                 accent = MaterialTheme.colorScheme.secondary,
                                 window = if (spellingFocus != null) 10 else config.englishWindow,
                                 correctTarget = spellingFocus?.correctTarget ?: config.englishWindow,
-                                progressKey = spellingFocus?.let {
-                                    "english_spelling_${it.letter.uppercaseChar()}"
-                                },
+                                progressKey = spellingFocus?.let { "english_spelling_${it.cacheKey}" },
                                 nextLabel = if (spellingFocus != null) "¡Completar refuerzo!" else "Continuar a Lectura",
                                 stageKey = "english",
                                 initial = {
                                     ChallengeEngine.randomEnglish(
                                         starter = starter,
                                         advanced = advanced,
-                                        spellingLetter = spellingFocus?.letter
+                                        spellingLetter = spellingFocus?.letter,
+                                        spellingWords = spellingFocus?.words
                                     ).toQuiz(starter)
                                 },
                                 loadNext = { prev ->
@@ -336,7 +337,8 @@ fun KioskScreen(
                                         starter = starter,
                                         exclude = prev,
                                         advanced = advanced,
-                                        spellingLetter = spellingFocus?.letter
+                                        spellingLetter = spellingFocus?.letter,
+                                        spellingWords = spellingFocus?.words
                                     ).toQuiz(starter)
                                 },
                                 onDone = {
@@ -574,7 +576,7 @@ private fun MultipleChoiceStage(
             // de solo texto no necesita media pantalla, y estirarla dejaba una
             // tarjeta casi vacía. Con dibujo la izquierda manda; sin dibujo
             // cede ancho a las respuestas y la tarjeta se ajusta al texto.
-            val tieneDibujo = quiz.question.split("\n").any { isEmojiLine(it) }
+            val tieneDibujo = quiz.visualWord != null || quiz.question.split("\n").any { isEmojiLine(it) }
             Row(
                 modifier = Modifier.fillMaxWidth().weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(m.sectionGap.dp)
@@ -592,7 +594,8 @@ private fun MultipleChoiceStage(
                     QuestionCard(
                         quiz.question,
                         if (tieneDibujo) Modifier.fillMaxWidth().weight(1f) else Modifier.fillMaxWidth(),
-                        fill = tieneDibujo
+                        fill = tieneDibujo,
+                        visualWord = quiz.visualWord
                     )
                 }
                 // Respuestas + retroalimentación se desplazan si hace falta,
@@ -623,7 +626,7 @@ private fun MultipleChoiceStage(
             }
         } else {
             InstructionText(quiz.instruction)
-            QuestionCard(quiz.question, Modifier.fillMaxWidth().weight(1f))
+            QuestionCard(quiz.question, Modifier.fillMaxWidth().weight(1f), visualWord = quiz.visualWord)
             Spacer(Modifier.size(m.sectionGap.dp))
             AnswerArea(quiz, selected, result, onAnswer)
             NextButton(result, passed, nextLabel, onNext)
@@ -921,6 +924,15 @@ private fun imageResFor(emoji: String): Int? {
     }
 }
 
+@Composable
+private fun imageResForWord(word: String): Int? {
+    val ctx = LocalContext.current
+    return remember(word) {
+        val name = word.lowercase().replace(" ", "_")
+        ctx.resources.getIdentifier(name, "drawable", ctx.packageName).takeIf { it != 0 }
+    }
+}
+
 /**
  * Pregunta y dibujos. El tamaño de los dibujos NO es fijo: se calcula con
  * [Adaptive.fitGridItem] a partir del espacio que queda después del texto, así
@@ -931,6 +943,7 @@ private fun imageResFor(emoji: String): Int? {
 private fun QuestionCard(
     text: String,
     modifier: Modifier = Modifier,
+    visualWord: String? = null,
     /**
      * Si la tarjeta debe ocupar todo el alto que le den. Con dibujos sí: hacen
      * falta las dos dimensiones para calcular su tamaño. Con solo texto no,
@@ -968,6 +981,17 @@ private fun QuestionCard(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
+                visualWord?.let { word ->
+                    imageResForWord(word)?.let { res ->
+                        Image(
+                            painter = painterResource(res),
+                            contentDescription = word,
+                            modifier = Modifier
+                                .size(m.heroImageMax.dp)
+                                .padding(bottom = m.itemGap.dp)
+                        )
+                    }
+                }
                 lines.forEach { line ->
                     if (!isEmojiLine(line)) {
                         Text(
