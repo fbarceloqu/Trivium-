@@ -44,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -64,6 +65,8 @@ import androidx.compose.ui.unit.sp
 import com.controlparental.kioscosuave.ChallengeEngine
 import com.controlparental.kioscosuave.ChildProfile
 import com.controlparental.kioscosuave.EnglishExercise
+import com.controlparental.kioscosuave.EnglishFocus
+import com.controlparental.kioscosuave.EnglishFocusStore
 import com.controlparental.kioscosuave.GeminiClient
 import com.controlparental.kioscosuave.GradeLevel
 import com.controlparental.kioscosuave.MathQuestion
@@ -200,7 +203,16 @@ fun KioskScreen(
 ) {
     val ctx = LocalContext.current
     val config = remember(profile) { profile.config }
-    var stage by remember { mutableStateOf(Stage.MATH) }
+    var spellingFocus by remember { mutableStateOf(EnglishFocusStore.load(ctx)) }
+    // Si se descargó una guía de refuerzo, el reto del día es exclusivamente
+    // ese contenido. La caché hace que también arranque así sin conexión.
+    var stage by remember(spellingFocus) {
+        mutableStateOf(if (spellingFocus != null) Stage.ENGLISH else Stage.MATH)
+    }
+
+    LaunchedEffect(Unit) {
+        ProgressSync.refreshEnglishFocus(ctx) { focus -> spellingFocus = focus }
+    }
     // Lenguaje visual según la edad: preescolar y primaria comparten uno
     // amplio y visual; secundaria usa otro más denso y textual. La escala del
     // espacio sigue mandando encima, así que ningún nivel deja de caber.
@@ -299,17 +311,32 @@ fun KioskScreen(
                             // avanzada; Primaria se queda solo con lo básico.
                             val advanced = profile.grade == GradeLevel.SECUNDARIA
                             MultipleChoiceStage(
-                                title = if (starter) "Inglés · palabras con dibujos"
+                                title = spellingFocus?.let { "Inglés · Refuerzo: ${it.title}" }
+                                    ?: if (starter) "Inglés · palabras con dibujos"
                                 else "Inglés · Lección de hoy: ${ChallengeEngine.todaysEnglishUnitTitle(advanced)}",
                                 accent = MaterialTheme.colorScheme.secondary,
-                                window = config.englishWindow,
-                                nextLabel = "Continuar a Lectura",
+                                window = if (spellingFocus != null) 10 else config.englishWindow,
+                                nextLabel = if (spellingFocus != null) "¡Completar refuerzo!" else "Continuar a Lectura",
                                 stageKey = "english",
-                                initial = { ChallengeEngine.randomEnglish(starter = starter, advanced = advanced).toQuiz(starter) },
-                                loadNext = { prev ->
-                                    ChallengeEngine.randomEnglish(starter = starter, exclude = prev, advanced = advanced).toQuiz(starter)
+                                initial = {
+                                    ChallengeEngine.randomEnglish(
+                                        starter = starter,
+                                        advanced = advanced,
+                                        spellingLetter = spellingFocus?.letter
+                                    ).toQuiz(starter)
                                 },
-                                onDone = { stage = Stage.READING }
+                                loadNext = { prev ->
+                                    ChallengeEngine.randomEnglish(
+                                        starter = starter,
+                                        exclude = prev,
+                                        advanced = advanced,
+                                        spellingLetter = spellingFocus?.letter
+                                    ).toQuiz(starter)
+                                },
+                                onDone = {
+                                    if (spellingFocus != null) onAllComplete()
+                                    else stage = Stage.READING
+                                }
                             )
                         }
                         Stage.READING -> when (profile.grade) {

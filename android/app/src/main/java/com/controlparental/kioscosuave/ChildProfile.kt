@@ -48,8 +48,11 @@ data class ChildProfile(
             )
             GradeLevel.PRIMARIA -> ChallengeConfig(
                 difficulty = Difficulty.EASY,
-                mathWindow = 5,   // 4 de las últimas 5 (80%)
-                englishWindow = 5
+                // Diez reactivos dan una medición más justa que cinco: la meta
+                // sigue siendo 80%, es decir, 8 aciertos dentro de las últimas
+                // 10 respuestas. Si falla, la ventana móvil le permite remontar.
+                mathWindow = 10,
+                englishWindow = 10
             )
             GradeLevel.SECUNDARIA -> ChallengeConfig(
                 difficulty = Difficulty.HARD,

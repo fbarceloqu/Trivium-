@@ -137,6 +137,38 @@ object ProgressSync {
         }
     }
 
+    /**
+     * Descarga el refuerzo de ortografía activo desde las guías del padre.
+     * La red nunca bloquea el reto: ante cualquier fallo se conserva la última
+     * instrucción guardada localmente.
+     */
+    fun refreshEnglishFocus(ctx: Context, onResult: (EnglishFocus?) -> Unit) {
+        val cached = EnglishFocusStore.load(ctx)
+        withAuth {
+            childDoc(ctx).collection("guides").get()
+                .addOnSuccessListener { docs ->
+                    val text = docs.documents.asSequence()
+                        .filter { it.getString("subject") == "ENGLISH" }
+                        .filter { it.getBoolean("paused") != true }
+                        .flatMap { doc -> sequence {
+                            yield(doc.getString("title") ?: "")
+                            doc.get("topics")
+                                ?.let { it as? List<*> }
+                                ?.filterIsInstance<String>()
+                                ?.forEach(::yield)
+                        } }
+                        .toList()
+                    val focus = EnglishFocusStore.detect(text)
+                    EnglishFocusStore.save(ctx, focus)
+                    onResult(focus)
+                }
+                .addOnFailureListener {
+                    Log.w(TAG, "refreshEnglishFocus: ${it.message}")
+                    onResult(cached)
+                }
+        }
+    }
+
     /** Resultado de la comprensión lectora (score 0-100, nº de envíos). */
     fun reportReading(ctx: Context, score: Int, attempts: Int) {
         withAuth {

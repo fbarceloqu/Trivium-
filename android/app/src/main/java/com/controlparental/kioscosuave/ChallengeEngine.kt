@@ -1492,7 +1492,89 @@ object ChallengeEngine {
         }
     }
 
-    fun randomEnglish(starter: Boolean = false, exclude: String? = null, advanced: Boolean = false): EnglishExercise {
+    /** Palabras cortas para los refuerzos de spelling de primaria. */
+    private val spellingWords = mapOf(
+        'B' to listOf("ball", "banana", "bear", "bee", "bird", "book", "box", "bread", "bus", "butterfly", "boat", "blue")
+    )
+
+    /**
+     * Variaciones del mismo conocimiento: reconocer inicial, completar,
+     * identificar una palabra y deletrear. Así el niño practica la B sin ver
+     * diez veces la misma plantilla.
+     */
+    private fun spellingEnglish(letter: Char): EnglishExercise {
+        val upper = letter.uppercaseChar()
+        val word = spellingWords[upper]?.random() ?: "ball"
+        val wrongLetters = ('A'..'Z').filter { it != upper }.shuffled().take(3)
+        return when ((0..3).random()) {
+            0 -> EnglishExercise(
+                "Escucha y mira la palabra.",
+                "¿Con qué letra empieza '$word'?",
+                (wrongLetters.map(Char::toString) + upper.toString()).shuffled(),
+                upper.toString(),
+                "'$word' empieza con la letra $upper.",
+                "/${upper.lowercaseChar()}/"
+            )
+            1 -> {
+                val ending = word.drop(1)
+                EnglishExercise(
+                    "Completa la palabra con la letra correcta.",
+                    "_${ending}",
+                    (wrongLetters.map(Char::toString) + upper.toString()).shuffled(),
+                    upper.toString(),
+                    "${upper}${ending} forma la palabra '$word'.",
+                    "/${upper.lowercaseChar()}/"
+                )
+            }
+            2 -> {
+                val others = listOf("cat", "dog", "sun", "fish", "pen", "map").shuffled().take(3)
+                EnglishExercise(
+                    "Busca una palabra que empiece con $upper.",
+                    "¿Cuál comienza con la letra $upper?",
+                    (others + word).shuffled(), word,
+                    "'$word' comienza con $upper.", "/${upper.lowercaseChar()}/"
+                )
+            }
+            else -> EnglishExercise(
+                "Deletrea con calma.",
+                "¿Cómo se deletrea '$word'?",
+                spellingChoices(word),
+                spell(word),
+                "La palabra '$word' se deletrea ${spell(word)}.",
+                "/${upper.lowercaseChar()}/"
+            )
+        }
+    }
+
+    private fun spell(word: String): String = word.uppercase().toCharArray().joinToString("-")
+
+    /** Siempre devuelve cuatro escrituras distintas, aun con palabras como bee. */
+    private fun spellingChoices(word: String): List<String> {
+        val correct = spell(word)
+        val choices = linkedSetOf(correct)
+        while (choices.size < 4) {
+            val chars = word.uppercase().toCharArray()
+            val index = chars.indices.random()
+            chars[index] = ('A'..'Z').filter { it != chars[index] }.random()
+            choices += chars.joinToString("-")
+        }
+        return choices.shuffled()
+    }
+
+    fun randomEnglish(
+        starter: Boolean = false,
+        exclude: String? = null,
+        advanced: Boolean = false,
+        spellingLetter: Char? = null
+    ): EnglishExercise {
+        if (spellingLetter != null) {
+            var ex = spellingEnglish(spellingLetter)
+            var tries = 0
+            while (exclude != null && ex.question == exclude && tries < 8) {
+                ex = spellingEnglish(spellingLetter); tries++
+            }
+            return ex
+        }
         if (starter) {
             var ex = starterEnglish()
             var tries = 0
