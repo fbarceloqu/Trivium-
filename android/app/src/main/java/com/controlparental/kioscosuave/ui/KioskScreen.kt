@@ -73,6 +73,7 @@ import com.controlparental.kioscosuave.MathQuestion
 import com.controlparental.kioscosuave.ProgressSync
 import com.controlparental.kioscosuave.ReadingPassage
 import com.controlparental.kioscosuave.SummaryResult
+import com.controlparental.kioscosuave.StageProgressStore
 import com.controlparental.kioscosuave.MemoryStore
 import com.controlparental.kioscosuave.TtsManager
 import com.controlparental.kioscosuave.curriculum.Curriculum
@@ -316,6 +317,10 @@ fun KioskScreen(
                                 else "Inglés · Lección de hoy: ${ChallengeEngine.todaysEnglishUnitTitle(advanced)}",
                                 accent = MaterialTheme.colorScheme.secondary,
                                 window = if (spellingFocus != null) 10 else config.englishWindow,
+                                correctTarget = if (spellingFocus != null) 30 else config.englishWindow,
+                                progressKey = spellingFocus?.let {
+                                    "english_spelling_${it.letter.uppercaseChar()}"
+                                },
                                 nextLabel = if (spellingFocus != null) "¡Completar refuerzo!" else "Continuar a Lectura",
                                 stageKey = "english",
                                 initial = {
@@ -462,6 +467,10 @@ private fun MultipleChoiceStage(
     title: String,
     accent: Color,
     window: Int,
+    /** Aciertos acumulados necesarios. Por defecto coincide con la ventana. */
+    correctTarget: Int = window,
+    /** Si existe, conserva el avance aunque la app se cierre o se gire. */
+    progressKey: String? = null,
     nextLabel: String,
     stageKey: String,
     initial: () -> Quiz,
@@ -472,7 +481,11 @@ private fun MultipleChoiceStage(
 ) {
     val m = LocalMetrics.current
     val ctx = LocalContext.current
-    val history = remember { mutableStateListOf<Boolean>() } // aciertos/fallos
+    val history = remember(progressKey) {
+        mutableStateListOf<Boolean>().apply {
+            progressKey?.let { addAll(StageProgressStore.load(ctx, it)) }
+        }
+    } // aciertos/fallos
     var quiz by remember { mutableStateOf(initial()) }
     var selected by remember { mutableStateOf<String?>(null) }
     var result by remember { mutableStateOf<Boolean?>(null) }
@@ -482,7 +495,12 @@ private fun MultipleChoiceStage(
     val windowHits = recent.count { it }
     val windowCount = recent.size
     val requiredCorrect = (window * 8 + 9) / 10 // ceil(window * 0.8)
-    val passed = windowCount >= window && windowHits >= requiredCorrect
+    val totalHits = history.count { it }
+    // En un refuerzo largo se cuentan TODOS los aciertos: fallar no borra los
+    // anteriores. La ventana móvil sigue comprobando comprensión reciente para
+    // que no se complete adivinando al azar al principio.
+    val passed = totalHits >= correctTarget &&
+        windowCount >= window && windowHits >= requiredCorrect
 
     if (showHelp && quiz.help != null) {
         HelpDialog(quiz.help!!) { showHelp = false }
@@ -494,6 +512,7 @@ private fun MultipleChoiceStage(
         val ok = opt == quiz.answer
         result = ok
         history.add(ok)
+        progressKey?.let { StageProgressStore.save(ctx, it, history) }
         // Alimenta la memoria: al fallar se guarda CUÁL opción incorrecta
         // eligió, porque los distractores son errores típicos concretos.
         onResult(quiz, ok, if (ok) null else opt)
@@ -504,6 +523,7 @@ private fun MultipleChoiceStage(
     val onNext: () -> Unit = {
         if (passed) {
             ProgressSync.reportStage(ctx, stageKey, history.count { it }, history.size)
+            progressKey?.let { StageProgressStore.clear(ctx, it) }
             onDone()
         } else {
             quiz = loadNext(quiz.question) // siempre una pregunta diferente
@@ -524,13 +544,13 @@ private fun MultipleChoiceStage(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(Modifier.weight(1f)) {
-                    ProgressIndicator(windowHits, window, accent)
+                    ProgressIndicator(windowHits, window, totalHits, correctTarget, accent)
                 }
                 StageControls(accent, quiz, ctx) { showHelp = true }
             }
         } else {
             StageBar(title, accent, quiz, ctx) { showHelp = true }
-            ProgressIndicator(windowHits, window, accent)
+            ProgressIndicator(windowHits, window, totalHits, correctTarget, accent)
         }
         Spacer(Modifier.size(m.sectionGap.dp))
 
@@ -677,21 +697,28 @@ private fun StageControls(
  * que es más informativo y menos infantil.
  */
 @Composable
-private fun ProgressIndicator(hits: Int, total: Int, accent: Color) {
+private fun ProgressIndicator(
+    recentHits: Int,
+    recentTotal: Int,
+    accumulatedHits: Int,
+    correctTarget: Int,
+    accent: Color
+) {
     val m = LocalMetrics.current
     val apagado = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
+    val isLongReinforcement = correctTarget > recentTotal
 
-    if (m.level.isPrimary) {
+    if (m.level.isPrimary && !isLongReinforcement) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(m.itemGap.dp / 2),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            repeat(total) { i ->
+            repeat(recentTotal) { i ->
                 Box(
                     Modifier
                         .size((m.statusLine * 0.9f).dp)
-                        .background(if (i < hits) accent else apagado, CircleShape)
+                        .background(if (i < recentHits) accent else apagado, CircleShape)
                 )
             }
         }
@@ -702,14 +729,17 @@ private fun ProgressIndicator(hits: Int, total: Int, accent: Color) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "$hits / $total",
+                "$accumulatedHits / $correctTarget correctas",
                 fontSize = m.statusLine.sp,
                 lineHeight = m.lineHeight(m.statusLine).sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 maxLines = 1
             )
             LinearProgressIndicator(
-                progress = { if (total == 0) 0f else hits.toFloat() / total },
+                progress = {
+                    if (correctTarget == 0) 0f
+                    else (accumulatedHits.toFloat() / correctTarget).coerceIn(0f, 1f)
+                },
                 color = accent,
                 trackColor = apagado,
                 strokeCap = StrokeCap.Round,
@@ -717,7 +747,8 @@ private fun ProgressIndicator(hits: Int, total: Int, accent: Color) {
             )
             // La meta importa, pero como dato de apoyo, no como titular.
             Text(
-                "meta $PASS_ACCURACY%",
+                if (isLongReinforcement) "últimas $recentHits/$recentTotal · meta $PASS_ACCURACY%"
+                else "meta $PASS_ACCURACY%",
                 fontSize = (m.statusLine * 0.9f).sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
                 maxLines = 1

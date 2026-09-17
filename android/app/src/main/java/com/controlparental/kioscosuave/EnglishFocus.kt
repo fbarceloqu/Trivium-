@@ -49,3 +49,29 @@ object EnglishFocusStore {
         Normalizer.normalize(text.lowercase(), Normalizer.Form.NFD)
             .replace(Regex("\\p{Mn}+"), "")
 }
+
+/**
+ * Progreso acumulado de un refuerzo activo. Solo guarda correcto/incorrecto;
+ * no guarda respuestas ni datos personales. Así 30 aciertos puede completarse
+ * en varios ratos y un reinicio inesperado no obliga a empezar de cero.
+ */
+object StageProgressStore {
+    private const val PREFS = "TriviumStageProgress"
+
+    fun load(ctx: Context, key: String): List<Boolean> =
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(key, "")
+            .orEmpty()
+            .mapNotNull { when (it) { '1' -> true; '0' -> false; else -> null } }
+
+    fun save(ctx: Context, key: String, history: List<Boolean>) {
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(key, history.joinToString("") { if (it) "1" else "0" })
+            .apply()
+    }
+
+    fun clear(ctx: Context, key: String) {
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(key).apply()
+    }
+}
