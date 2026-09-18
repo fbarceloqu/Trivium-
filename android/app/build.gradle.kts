@@ -7,29 +7,12 @@ plugins {
     id("com.google.gms.google-services")
 }
 
-// Lee las API keys de Gemini desde local.properties (NUNCA se suben a git: cada
-// quien pone las suyas). Si no existen, quedan vacías y las llamadas a IA fallan
-// limpiamente -> el motor de retos usa su respaldo local (fail-safe, sin key
-// la app funciona 100% offline igual que antes).
-//
-// Dos keys, por orden de preferencia:
-//   GEMINI_API_KEY_FREE     -> nivel gratuito. Se intenta SIEMPRE primero.
-//   GEMINI_API_KEY_BILLING  -> con facturación. Solo se usa si la gratuita se
-//                              queda sin cuota (429) o no tiene permiso (403).
-// Así el gasto real solo ocurre cuando la cuota gratuita ya se agotó.
-//
-// ⚠️ DEUDA CONOCIDA: la key con facturación viaja dentro del APK y se puede
-// extraer con apktool. Antes de distribuir la app hay que mover esa llamada a
-// una Cloud Function (ver Fase 3). Mientras el APK no salga de la familia el
-// riesgo está acotado, pero no es una solución que deba llegar a producción.
+// Gemini se llama exclusivamente mediante Firebase Cloud Functions. Ninguna
+// API key viaja en el APK; las dos claves viven como secretos del servidor.
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) load(file.inputStream())
 }
-// Compatibilidad hacia atrás: un local.properties viejo solo tiene GEMINI_API_KEY.
-val legacyKey: String = localProperties.getProperty("GEMINI_API_KEY", "")
-val geminiKeyFree: String = localProperties.getProperty("GEMINI_API_KEY_FREE", "")
-val geminiKeyBilling: String = localProperties.getProperty("GEMINI_API_KEY_BILLING", legacyKey)
 // Un OAuth client ID es público (no es un secreto ni una API key). Se permite
 // sobrescribir para otro proyecto desde local.properties.
 val googleWebClientId: String = localProperties.getProperty(
@@ -48,8 +31,6 @@ android {
         versionCode = 1
         versionName = "1.0-standalone"
         vectorDrawables { useSupportLibrary = true }
-        buildConfigField("String", "GEMINI_API_KEY_FREE", "\"$geminiKeyFree\"")
-        buildConfigField("String", "GEMINI_API_KEY_BILLING", "\"$geminiKeyBilling\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
 
@@ -91,6 +72,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.16.0"))
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-functions")
     implementation("androidx.credentials:credentials:1.3.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")

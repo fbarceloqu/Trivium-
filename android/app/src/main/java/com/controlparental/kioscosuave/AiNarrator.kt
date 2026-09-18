@@ -11,7 +11,6 @@ import com.controlparental.kioscosuave.curriculum.NarrativeValidator
 import com.controlparental.kioscosuave.curriculum.Verdict
 import org.json.JSONArray
 import org.json.JSONObject
-import java.util.concurrent.Executors
 
 /**
  * ONLINE-FIRST: contexto generado por IA sobre matemáticas deterministas.
@@ -32,7 +31,7 @@ import java.util.concurrent.Executors
  * POR LOTES, NO POR EJERCICIO
  * ---------------------------
  * Una sola llamada trae varias narrativas. Un niño no espera 8 segundos por
- * pregunta: la sesión arranca con contenido local y las narrativas llegan de
+     * pregunta: la sesión arranca con contenido local y las narrativas llegan de
  * fondo para las preguntas siguientes. Además, una llamada por ejercicio
  * agotaría la cuota gratuita en pocos días con tres tablets.
  *
@@ -45,7 +44,6 @@ import java.util.concurrent.Executors
 object AiNarrator {
 
     private const val TAG = "TriviumNarrator"
-    private val executor = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
 
     /** Cuántos enunciados se piden en una sola llamada. */
@@ -71,7 +69,7 @@ object AiNarrator {
 
     /**
      * Pide narrativas para [requests] y devuelve solo las que pasan validación,
-     * indexadas por skillId. Mapa vacío si no hay red, no hay key, o todo se
+     * indexadas por skillId. Mapa vacío si no hay red o todo se
      * rechazó: el llamador simplemente sigue con sus enunciados originales.
      */
     fun narrate(
@@ -79,21 +77,16 @@ object AiNarrator {
         requests: List<NarrativeRequest>,
         onResult: (Map<String, String>) -> Unit
     ) {
-        if (requests.isEmpty() || !isOnline(ctx) || !GeminiClient.hasAnyKey()) {
+        if (requests.isEmpty() || !isOnline(ctx)) {
             main.post { onResult(emptyMap()) }
             return
         }
 
-        executor.execute {
+        TriviumAiApi.generateNarratives(ctx, requests) { raw ->
             val result = try {
-                val raw = GeminiClient.callWithFallback(
-                    prompt = buildPrompt(requests),
-                    systemInstruction = SYSTEM,
-                    schema = SCHEMA
-                )
                 if (raw == null) emptyMap() else parseAndValidate(ctx, requests, raw)
             } catch (e: Exception) {
-                Log.w(TAG, "Narración fallida, se usan los enunciados locales: ${e.message}")
+                Log.w(TAG, "Narración inválida, se usan los enunciados locales: ${e.message}")
                 emptyMap()
             }
             main.post { onResult(result) }
@@ -101,48 +94,6 @@ object AiNarrator {
     }
 
     // -----------------------------------------------------------------
-
-    private val SYSTEM =
-        "Eres un maestro mexicano de secundaria que reescribe enunciados de matemáticas " +
-            "para que no se vuelvan monótonos. " +
-            "REGLAS ABSOLUTAS: (1) conserva EXACTAMENTE los mismos números, sin añadir ni quitar ninguno; " +
-            "(2) NUNCA incluyas ni insinúes el resultado; (3) el texto debe ser UNA sola pregunta en " +
-            "español de México, con ¿ al inicio y ? al final; (4) máximo 40 palabras; " +
-            "(5) contexto cotidiano y apropiado para un menor de 12 a 14 años; " +
-            "(6) no expliques nada ni muestres procedimiento. " +
-            "Si no puedes cumplir todo, devuelve el enunciado original sin cambios."
-
-    private fun buildPrompt(requests: List<NarrativeRequest>): String {
-        val items = requests.mapIndexed { i, r ->
-            "$i. [tema: ${r.skillId}] números que debes conservar: ${r.requiredNumbers.joinToString()} " +
-                "| enunciado: ${r.original}"
-        }.joinToString("\n")
-        return """
-            Reescribe cada enunciado con un contexto cotidiano distinto, respetando las reglas.
-
-            $items
-
-            Devuelve un arreglo con un objeto por enunciado: {"i": índice, "q": enunciado reescrito}.
-        """.trimIndent()
-    }
-
-    private val SCHEMA = JSONObject().apply {
-        put("type", "ARRAY")
-        put(
-            "items",
-            JSONObject().apply {
-                put("type", "OBJECT")
-                put(
-                    "properties",
-                    JSONObject().apply {
-                        put("i", JSONObject().put("type", "INTEGER"))
-                        put("q", JSONObject().put("type", "STRING"))
-                    }
-                )
-                put("required", JSONArray(listOf("i", "q")))
-            }
-        )
-    }
 
     private fun parseAndValidate(
         ctx: Context,

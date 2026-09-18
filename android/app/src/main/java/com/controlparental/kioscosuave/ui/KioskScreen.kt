@@ -67,7 +67,7 @@ import com.controlparental.kioscosuave.ChildProfile
 import com.controlparental.kioscosuave.EnglishExercise
 import com.controlparental.kioscosuave.EnglishFocus
 import com.controlparental.kioscosuave.EnglishFocusStore
-import com.controlparental.kioscosuave.GeminiClient
+import com.controlparental.kioscosuave.TriviumAiApi
 import com.controlparental.kioscosuave.GradeLevel
 import com.controlparental.kioscosuave.MathQuestion
 import com.controlparental.kioscosuave.ProgressSync
@@ -1350,7 +1350,7 @@ private fun ReadingStage(advanced: Boolean, onApproved: () -> Unit) {
                     // Intenta evaluar con IA (Gemini); si falla, no hay internet,
                     // o no hay API key, degrada a la heurística local (misma
                     // política fail-safe: nunca aprueba a ciegas).
-                    GeminiClient.evaluateSummary(passage.text, summary) { aiResult ->
+                    TriviumAiApi.evaluateSummary(ctx, passage.text, summary) { aiResult ->
                         evaluating = false
                         if (aiResult != null) {
                             evaluatedByAi = true

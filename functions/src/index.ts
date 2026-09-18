@@ -244,6 +244,52 @@ export const generateExercise = onCall({region: "us-central1", timeoutSeconds: 6
   }
 });
 
+/**
+ * Reescribe enunciados matemáticos ya validados por la tablet. La función no
+ * calcula ni devuelve respuestas: conserva números y la app aplica su
+ * NarrativeValidator antes de mostrar cualquier texto.
+ */
+export const generateNarratives = onCall({region: "us-central1", timeoutSeconds: 60, secrets: [GEMINI_API_KEY_FREE, GEMINI_API_KEY_BILLING]}, async (request) => {
+  const childId = asText(request.data?.childId, "childId", 120);
+  await authorize(request, childId);
+  const rawRequests: unknown[] = Array.isArray(request.data?.requests) ? request.data.requests.slice(0, 6) : [];
+  if (rawRequests.length === 0) {
+    throw new HttpsError("invalid-argument", "requests debe contener entre 1 y 6 enunciados.");
+  }
+  const requests = rawRequests.map((raw: unknown, index: number) => {
+    if (!raw || typeof raw !== "object") throw new HttpsError("invalid-argument", `El reactivo ${index} no es válido.`);
+    const item = raw as Record<string, unknown>;
+    return {
+      i: index,
+      skillId: optionalText(item.skillId, "matemáticas", 100),
+      original: asText(item.original, "original", 500),
+      numbers: Array.isArray(item.numbers) ? item.numbers.map(String).slice(0, 12) : [],
+    };
+  });
+  const cacheKey = cacheId("narratives-v1", requests);
+  const saved = await getCached<Array<{i: number; q: string}>>(cacheKey);
+  if (saved) return {mode: "cache", narratives: saved};
+
+  try {
+    const narratives = await generateJson<Array<{i: number; q: string}>>(
+      `Reescribe estos enunciados con contextos cotidianos distintos. Conserva EXACTAMENTE los números indicados, no añadas ni quites números, nunca muestres ni insinúes la respuesta, usa una pregunta en español de México de máximo 40 palabras.\n\n${requests.map((item: {i: number; skillId: string; numbers: string[]; original: string}) => `${item.i}. Tema: ${item.skillId}; números obligatorios: ${item.numbers.join(", ")}; original: ${item.original}`).join("\n")}`,
+      {
+        systemInstruction: "Eres un docente de matemáticas de secundaria. Devuelve solo JSON. Si no puedes respetar todas las reglas, devuelve el enunciado original sin cambios.",
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {type: Type.OBJECT, properties: {i: {type: Type.INTEGER}, q: {type: Type.STRING}}, required: ["i", "q"]},
+        },
+      },
+    );
+    await cacheContent(cacheKey, "narratives", narratives, 30);
+    return {mode: "ai", narratives};
+  } catch (error) {
+    logger.error("No se pudieron generar narrativas", error);
+    return {mode: "fallback", narratives: []};
+  }
+});
+
 export const evaluateSummary = onCall({region: "us-central1", timeoutSeconds: 60, secrets: [GEMINI_API_KEY_FREE, GEMINI_API_KEY_BILLING]}, async (request) => {
   const childId = asText(request.data?.childId, "childId", 120);
   await authorize(request, childId);
