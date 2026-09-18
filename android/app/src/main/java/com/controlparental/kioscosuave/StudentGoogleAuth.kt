@@ -5,7 +5,7 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.lifecycle.lifecycleScope
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
@@ -25,11 +25,14 @@ object StudentGoogleAuth {
         }
         activity.lifecycleScope.launch {
             try {
-                val option = GetGoogleIdOption.Builder()
-                    .setServerClientId(clientId)
-                    .setFilterByAuthorizedAccounts(false)
-                    .setAutoSelectEnabled(false)
-                    .build()
+                // Flujo de BOTÓN (GetSignInWithGoogleOption), no la hoja
+                // automática (GetGoogleIdOption). La hoja respondía "No
+                // credentials available" [28433] sin mostrar nada, aun con
+                // cuenta en el equipo, SHA-1 registrado y client ID correcto
+                // (visto en el emulador el 17 sep 2026). Para una acción que
+                // el usuario toca, Google indica este flujo: siempre abre el
+                // selector de cuentas y deja agregar una si no hay ninguna.
+                val option = GetSignInWithGoogleOption.Builder(clientId).build()
                 val result = CredentialManager.create(activity).getCredential(
                     activity, GetCredentialRequest.Builder().addCredentialOption(option).build()
                 )
