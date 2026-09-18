@@ -48,8 +48,8 @@ data class ChildProfile(
         get() = when (grade) {
             GradeLevel.PREESCOLAR -> ChallengeConfig(
                 difficulty = Difficulty.STARTER,
-                mathWindow = 5,   // 4 de las últimas 5 (80%)
-                englishWindow = 5
+                mathWindow = 10,   // 8 de las últimas 10 (80%)
+                englishWindow = 10
             )
             GradeLevel.PRIMARIA -> ChallengeConfig(
                 difficulty = Difficulty.EASY,

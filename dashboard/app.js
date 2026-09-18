@@ -216,6 +216,10 @@ async function showChildren() {
     const unlocked = !!d?.unlockedAt;
     const stat = (s) => (s ? `${s.correct ?? 0}/${s.attempts ?? 0}` : "—");
     const evas = d?.evasions?.count ?? 0;
+    // En 1º de primaria la tercera etapa es spelling de la B, no lectura.
+    const third = c.grade === "PREESCOLAR"
+      ? `Spelling: ${stat(d?.spelling)}`
+      : `Lectura: ${d?.reading ? (d.reading.score ?? d.reading.correct ?? 0) : "—"}`;
 
     const el = document.createElement("div");
     el.className = "card child-card";
@@ -228,7 +232,7 @@ async function showChildren() {
       <div class="chips">
         <span class="chip">Mate: ${escapeHtml(stat(d?.math))}</span>
         <span class="chip">Inglés: ${escapeHtml(stat(d?.english))}</span>
-        <span class="chip">Lectura: ${escapeHtml(d?.reading ? (d.reading.score ?? d.reading.correct ?? 0) : "—")}</span>
+        <span class="chip">${escapeHtml(third)}</span>
         <span class="chip">${escapeHtml(evas > 0 ? `⚠️ ${evas} intentos de salir` : "Sin evasiones")}</span>
       </div>
       <div class="lastseen">Última actividad: ${escapeHtml(fmtDateTime(c.lastSeen))}</div>
@@ -271,7 +275,10 @@ async function showDetail(childId, c) {
   for (const day of days) {
     const d = day.data();
     const stat = (s) => (s ? `${s.correct ?? 0}/${s.attempts ?? 0}` : "—");
-    const reading = d.reading ? `${d.reading.score ?? d.reading.correct ?? 0}` : "—";
+    // Los días de 1º de primaria traen spelling en lugar de lectura.
+    const reading = d.spelling
+      ? `Spelling ${stat(d.spelling)}`
+      : d.reading ? `${d.reading.score ?? d.reading.correct ?? 0}` : "—";
     const evas = d.evasions?.count ?? 0;
     const tr = document.createElement("tr");
     tr.innerHTML = `

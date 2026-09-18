@@ -146,6 +146,12 @@ private fun EnglishExercise.toQuiz(starter: Boolean = false): Quiz {
     // Si la "pregunta" tiene letras es texto en inglés (se lee con voz en inglés);
     // si es solo un dibujo (emoji), se lee la instrucción en español.
     val questionIsText = question.any { it.isLetter() }
+    // Spelling (es lo único que trae visualWord) es la excepción: su pregunta
+    // está en ESPAÑOL aunque cite la palabra ("¿Con qué letra empieza
+    // 'ball'?"), así que se lee con la voz en español. La palabra en inglés
+    // suena bien al responder (wordToSpeak). En "_all" no hay frase que leer:
+    // se lee la instrucción.
+    val spelling = visualWord != null
 
     // Palabra a pronunciar al seleccionar una respuesta: en preescolar, una de
     // (pregunta, respuesta) siempre es la palabra en texto (la otra es el emoji);
@@ -170,8 +176,12 @@ private fun EnglishExercise.toQuiz(starter: Boolean = false): Quiz {
         afterLines = listOf(explanation, "🔊 Pronunciación: $phonetic"),
         help = if (starter) Help(ChallengeEngine.starterEnglishHelp.title, ChallengeEngine.starterEnglishHelp.lines)
         else Help(ChallengeEngine.englishHelp.title, ChallengeEngine.englishHelp.lines),
-        speech = if (questionIsText) stripEmoji(question) else instruction,
-        speechEnglish = questionIsText,
+        speech = when {
+            spelling && question.startsWith("_") -> instruction
+            questionIsText -> stripEmoji(question)
+            else -> instruction
+        },
+        speechEnglish = questionIsText && !spelling,
         wordToSpeak = word,
         exampleSentence = sentence,
         visualWord = visualWord
@@ -221,6 +231,8 @@ fun KioskScreen(
     // amplio y visual; secundaria usa otro más denso y textual. La escala del
     // espacio sigue mandando encima, así que ningún nivel deja de caber.
     val level = Level.forGrade(profile.grade)
+    // En 1º de primaria la tercera etapa es spelling de la letra B, no lectura.
+    val thirdLabel = if (profile.grade == GradeLevel.PREESCOLAR) "Spelling" else "Lectura"
 
     // Se miden las dimensiones REALES disponibles, no la configuración global:
     // así también es correcto en pantalla dividida o ventana flotante.
@@ -257,13 +269,13 @@ fun KioskScreen(
                             fontWeight = FontWeight.Bold,
                             maxLines = 1
                         )
-                        StepIndicator(stage, Modifier.weight(1f))
+                        StepIndicator(stage, thirdLabel, Modifier.weight(1f))
                         LockButton(onParentAccess)
                     }
                 } else {
                     Header(profile.name, onParentAccess)
                     Spacer(Modifier.size(m.sectionGap.dp))
-                    StepIndicator(stage)
+                    StepIndicator(stage, thirdLabel)
                 }
                 Spacer(Modifier.size(m.sectionGap.dp))
 
@@ -322,7 +334,7 @@ fun KioskScreen(
                                 window = if (spellingFocus != null) 10 else config.englishWindow,
                                 correctTarget = spellingFocus?.correctTarget ?: config.englishWindow,
                                 progressKey = spellingFocus?.let { "english_spelling_${it.cacheKey}" },
-                                nextLabel = if (spellingFocus != null) "¡Completar refuerzo!" else "Continuar a Lectura",
+                                nextLabel = if (spellingFocus != null) "¡Completar refuerzo!" else "Continuar a $thirdLabel",
                                 stageKey = "english",
                                 initial = {
                                     ChallengeEngine.randomEnglish(
@@ -348,15 +360,24 @@ fun KioskScreen(
                             )
                         }
                         Stage.READING -> when (profile.grade) {
-                            // Preescolar/1º: leer una oración corta y responder.
+                            // 1º de primaria: spelling de la letra B en lugar de
+                            // lectura (decisión del padre, sept 2026). Usa el
+                            // mismo generador y las mismas imágenes que el
+                            // refuerzo semanal de spelling. Se reporta como
+                            // "spelling" para no mezclarlo con la lectura.
                             GradeLevel.PREESCOLAR -> MultipleChoiceStage(
-                                title = "Lectura · lee y responde",
+                                title = "Spelling · letra B",
                                 accent = Color(0xFFF59E0B),
-                                window = 5,
+                                window = 10,
                                 nextLabel = "¡Desbloquear tablet!",
-                                stageKey = "reading",
-                                initial = { ChallengeEngine.randomReadingQuiz().toQuiz() },
-                                loadNext = { prev -> ChallengeEngine.randomReadingQuiz(exclude = prev).toQuiz() },
+                                stageKey = "spelling",
+                                initial = {
+                                    ChallengeEngine.randomEnglish(spellingLetter = 'B').toQuiz(starter = true)
+                                },
+                                loadNext = { prev ->
+                                    ChallengeEngine.randomEnglish(exclude = prev, spellingLetter = 'B')
+                                        .toQuiz(starter = true)
+                                },
                                 onDone = onAllComplete
                             )
                             else -> ReadingStage(
@@ -410,7 +431,7 @@ private fun LockButton(onParentAccess: () -> Unit) {
 }
 
 @Composable
-private fun StepIndicator(stage: Stage, modifier: Modifier = Modifier) {
+private fun StepIndicator(stage: Stage, thirdLabel: String, modifier: Modifier = Modifier) {
     val m = LocalMetrics.current
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -418,7 +439,7 @@ private fun StepIndicator(stage: Stage, modifier: Modifier = Modifier) {
     ) {
         Chip("Mate", stage == Stage.MATH, Modifier.weight(1f))
         Chip("Inglés", stage == Stage.ENGLISH, Modifier.weight(1f))
-        Chip("Lectura", stage == Stage.READING, Modifier.weight(1f))
+        Chip(thirdLabel, stage == Stage.READING, Modifier.weight(1f))
     }
 }
 
@@ -563,10 +584,10 @@ private fun MultipleChoiceStage(
                 Box(Modifier.weight(1f)) {
                     ProgressIndicator(windowHits, window, totalHits, correctTarget, accent)
                 }
-                StageControls(accent, quiz, ctx) { showHelp = true }
+                StageControls(accent, quiz) { showHelp = true }
             }
         } else {
-            StageBar(title, accent, quiz, ctx) { showHelp = true }
+            StageBar(title, accent, quiz) { showHelp = true }
             ProgressIndicator(windowHits, window, totalHits, correctTarget, accent)
         }
         Spacer(Modifier.size(m.sectionGap.dp))
@@ -595,7 +616,10 @@ private fun MultipleChoiceStage(
                         quiz.question,
                         if (tieneDibujo) Modifier.fillMaxWidth().weight(1f) else Modifier.fillMaxWidth(),
                         fill = tieneDibujo,
-                        visualWord = quiz.visualWord
+                        visualWord = quiz.visualWord,
+                        speech = quiz.speech,
+                        speechEnglish = quiz.speechEnglish,
+                        accent = accent
                     )
                 }
                 // Respuestas + retroalimentación se desplazan si hace falta,
@@ -626,7 +650,14 @@ private fun MultipleChoiceStage(
             }
         } else {
             InstructionText(quiz.instruction)
-            QuestionCard(quiz.question, Modifier.fillMaxWidth().weight(1f), visualWord = quiz.visualWord)
+            QuestionCard(
+                quiz.question,
+                Modifier.fillMaxWidth().weight(1f),
+                visualWord = quiz.visualWord,
+                speech = quiz.speech,
+                speechEnglish = quiz.speechEnglish,
+                accent = accent
+            )
             Spacer(Modifier.size(m.sectionGap.dp))
             AnswerArea(quiz, selected, result, onAnswer)
             NextButton(result, passed, nextLabel, onNext)
@@ -639,7 +670,6 @@ private fun StageBar(
     title: String,
     accent: Color,
     quiz: Quiz,
-    ctx: android.content.Context,
     onHelp: () -> Unit
 ) {
     val m = LocalMetrics.current
@@ -656,37 +686,24 @@ private fun StageBar(
             maxLines = 2,
             modifier = Modifier.weight(1f)
         )
-        StageControls(accent, quiz, ctx, onHelp)
+        StageControls(accent, quiz, onHelp)
     }
 }
 
 /**
- * Audio y ayuda. Son controles SECUNDARIOS: área táctil cómoda, pero sin
- * competir con la pregunta. Van aparte de [StageBar] porque en horizontal se
- * reubican junto al progreso para ahorrar una fila entera.
+ * Ayuda. Es un control SECUNDARIO: área táctil cómoda, pero sin competir con
+ * la pregunta. Va aparte de [StageBar] porque en horizontal se reubica junto al
+ * progreso para ahorrar una fila entera. La bocina ya no vive aquí: está dentro
+ * de [QuestionCard], junto a la pregunta que lee.
  */
 @Composable
 private fun StageControls(
     accent: Color,
     quiz: Quiz,
-    ctx: android.content.Context,
     onHelp: () -> Unit
 ) {
     val m = LocalMetrics.current
     Row(verticalAlignment = Alignment.CenterVertically) {
-        quiz.speech?.let { speech ->
-            IconButton(
-                onClick = { TtsManager.speak(ctx, speech, quiz.speechEnglish) },
-                modifier = Modifier.size(m.minTouch.dp)
-            ) {
-                Icon(
-                    Icons.Filled.VolumeUp,
-                    contentDescription = "Escuchar la pregunta",
-                    tint = accent,
-                    modifier = Modifier.size((m.actionIcon * 0.8f).dp)
-                )
-            }
-        }
         if (quiz.help != null) {
             IconButton(
                 onClick = onHelp,
@@ -949,116 +966,150 @@ private fun QuestionCard(
      * falta las dos dimensiones para calcular su tamaño. Con solo texto no,
      * porque estirarla deja una tarjeta con mucho aire muerto.
      */
-    fill: Boolean = true
+    fill: Boolean = true,
+    /** Texto que lee la bocina. Si es null, la tarjeta no muestra bocina. */
+    speech: String? = null,
+    speechEnglish: Boolean = false,
+    accent: Color = Color.Unspecified
 ) {
     val m = LocalMetrics.current
     val density = LocalDensity.current
+    val ctx = LocalContext.current
+    // Margen lateral del TEXTO para que no quede debajo de la bocina. Es
+    // simétrico para que la pregunta siga centrada; los dibujos no lo usan y
+    // conservan todo el ancho con el que se validó su tamaño.
+    val speakerSlot = if (speech != null) m.minTouch else 0f
 
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(m.corner.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        BoxWithConstraints(
-            (if (fill) Modifier.fillMaxSize() else Modifier.fillMaxWidth())
-                .padding(m.cardPad.dp)
-        ) {
-            val availW = maxWidth.value.takeIf { it.isFinite() } ?: m.contentMaxWidth
-            val availH = maxHeight.value.takeIf { it.isFinite() } ?: (m.heightDp * 0.4f)
-
-            val lines = text.split("\n").filter { it.isNotBlank() }
-            val drawLines = lines.filter { isEmojiLine(it) }
-            val prose = lines.size - drawLines.size
-
-            // Altura que se lleva el texto; el resto es para los dibujos.
-            val proseH = prose * m.lineHeight(m.question) * 1.2f
-            val perDrawH = if (drawLines.isEmpty()) 0f
-            else ((availH - proseH) / drawLines.size).coerceAtLeast(m.countImageMin)
-
-            Column(
-                modifier = (if (fill) Modifier.fillMaxSize() else Modifier.fillMaxWidth())
-                    .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+        Box(if (fill) Modifier.fillMaxSize() else Modifier.fillMaxWidth()) {
+            BoxWithConstraints(
+                (if (fill) Modifier.fillMaxSize() else Modifier.fillMaxWidth())
+                    .padding(m.cardPad.dp)
             ) {
-                visualWord?.let { word ->
-                    imageResForWord(word)?.let { res ->
-                        Image(
-                            painter = painterResource(res),
-                            contentDescription = word,
-                            modifier = Modifier
-                                .size(m.heroImageMax.dp)
-                                .padding(bottom = m.itemGap.dp)
-                        )
+                val availW = maxWidth.value.takeIf { it.isFinite() } ?: m.contentMaxWidth
+                val availH = maxHeight.value.takeIf { it.isFinite() } ?: (m.heightDp * 0.4f)
+
+                val lines = text.split("\n").filter { it.isNotBlank() }
+                val drawLines = lines.filter { isEmojiLine(it) }
+                val prose = lines.size - drawLines.size
+
+                // Altura que se lleva el texto; el resto es para los dibujos.
+                val proseH = prose * m.lineHeight(m.question) * 1.2f
+                val perDrawH = if (drawLines.isEmpty()) 0f
+                else ((availH - proseH) / drawLines.size).coerceAtLeast(m.countImageMin)
+
+                Column(
+                    modifier = (if (fill) Modifier.fillMaxSize() else Modifier.fillMaxWidth())
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    visualWord?.let { word ->
+                        imageResForWord(word)?.let { res ->
+                            Image(
+                                painter = painterResource(res),
+                                contentDescription = word,
+                                modifier = Modifier
+                                    .size(m.heroImageMax.dp)
+                                    .padding(bottom = m.itemGap.dp)
+                            )
+                        }
                     }
-                }
-                lines.forEach { line ->
-                    if (!isEmojiLine(line)) {
-                        Text(
-                            line,
-                            textAlign = TextAlign.Center,
-                            fontSize = m.question.sp,
-                            lineHeight = m.lineHeight(m.question).sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.fillMaxWidth()
+                    lines.forEach { line ->
+                        if (!isEmojiLine(line)) {
+                            Text(
+                                line,
+                                textAlign = TextAlign.Center,
+                                fontSize = m.question.sp,
+                                lineHeight = m.lineHeight(m.question).sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = speakerSlot.dp)
+                            )
+                            return@forEach
+                        }
+
+                        val tokens = line.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+                        val single = tokens.size <= 1
+                        // Solo se usa imagen real si TODA la fila es el mismo emoji
+                        // repetido (contar/vocabulario); con emojis mixtos (🔵🟠 de
+                        // "qué suma muestra") se queda en emoji.
+                        val imgRes = tokens.distinct().singleOrNull()?.let { imageResFor(it) }
+
+                        val minSize = if (single) m.heroImageMin else m.countImageMin
+                        val maxSize = if (single) m.heroImageMax else m.countImageMax
+                        val itemDp = Adaptive.fitGridItem(
+                            count = tokens.size,
+                            maxW = availW,
+                            maxH = perDrawH,
+                            gap = m.itemGap,
+                            minSize = minSize,
+                            maxSize = maxSize
                         )
-                        return@forEach
-                    }
 
-                    val tokens = line.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
-                    val single = tokens.size <= 1
-                    // Solo se usa imagen real si TODA la fila es el mismo emoji
-                    // repetido (contar/vocabulario); con emojis mixtos (🔵🟠 de
-                    // "qué suma muestra") se queda en emoji.
-                    val imgRes = tokens.distinct().singleOrNull()?.let { imageResFor(it) }
-
-                    val minSize = if (single) m.heroImageMin else m.countImageMin
-                    val maxSize = if (single) m.heroImageMax else m.countImageMax
-                    val itemDp = Adaptive.fitGridItem(
-                        count = tokens.size,
-                        maxW = availW,
-                        maxH = perDrawH,
-                        gap = m.itemGap,
-                        minSize = minSize,
-                        maxSize = maxSize
-                    )
-
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalArrangement = Arrangement.Center,
-                        maxItemsInEachRow = Adaptive.columnsFor(itemDp, availW, m.itemGap)
-                    ) {
-                        tokens.forEach { token ->
-                            if (imgRes != null) {
-                                Image(
-                                    painter = painterResource(imgRes),
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .padding(m.itemGap.dp / 2)
-                                        .size(itemDp.dp)
-                                )
-                            } else {
-                                // El emoji se mide en dp y se convierte a sp para
-                                // que ocupe EXACTAMENTE la casilla calculada, sin
-                                // que la escala de fuente del sistema lo desborde.
-                                val emojiSp = with(density) { (itemDp * 0.78f).dp.toSp() }
-                                Box(
-                                    modifier = Modifier
-                                        .padding(m.itemGap.dp / 2)
-                                        .size(itemDp.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        token,
-                                        fontSize = emojiSp,
-                                        lineHeight = emojiSp,
-                                        textAlign = TextAlign.Center
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalArrangement = Arrangement.Center,
+                            maxItemsInEachRow = Adaptive.columnsFor(itemDp, availW, m.itemGap)
+                        ) {
+                            tokens.forEach { token ->
+                                if (imgRes != null) {
+                                    Image(
+                                        painter = painterResource(imgRes),
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .padding(m.itemGap.dp / 2)
+                                            .size(itemDp.dp)
                                     )
+                                } else {
+                                    // El emoji se mide en dp y se convierte a sp para
+                                    // que ocupe EXACTAMENTE la casilla calculada, sin
+                                    // que la escala de fuente del sistema lo desborde.
+                                    val emojiSp = with(density) { (itemDp * 0.78f).dp.toSp() }
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(m.itemGap.dp / 2)
+                                            .size(itemDp.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            token,
+                                            fontSize = emojiSp,
+                                            lineHeight = emojiSp,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
+                }
+            }
+            // La bocina va DENTRO de la tarjeta, en la esquina, junto a la pregunta
+            // que lee: ahí está mirando el niño. Antes vivía en la barra de la
+            // etapa, lejos del ejercicio. El fondo circular la mantiene visible si
+            // algún dibujo llega hasta la esquina.
+            speech?.let { s ->
+                IconButton(
+                    onClick = { TtsManager.speak(ctx, s, speechEnglish) },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding((m.cardPad / 2).dp)
+                        .size(m.minTouch.dp)
+                        .background(MaterialTheme.colorScheme.surface, CircleShape)
+                ) {
+                    Icon(
+                        Icons.Filled.VolumeUp,
+                        contentDescription = "Escuchar la pregunta",
+                        tint = if (accent == Color.Unspecified) MaterialTheme.colorScheme.primary else accent,
+                        modifier = Modifier.size((m.actionIcon * 0.8f).dp)
+                    )
                 }
             }
         }
