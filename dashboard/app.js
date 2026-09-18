@@ -94,6 +94,26 @@ $("edit-child-btn").addEventListener("click", () => {
   $("edit-child-form").classList.toggle("hidden");
 });
 $("e-cancel").addEventListener("click", () => hide("edit-child-form"));
+async function sendParentControl(action) {
+  if (!selectedChild) return;
+  const label = action === "UNLOCK_TODAY" ? "desbloquear la tablet hoy" : "bloquear y reactivar las tareas";
+  if (!confirm(`¿Confirmas ${label} para ${selectedChild.data.name}?`)) return;
+  const message = $("parent-control-msg");
+  message.textContent = "Enviando orden a la tablet…";
+  try {
+    await setDoc(doc(db, "children", selectedChild.id), {
+      parentOverride: { action, date: todayStr(), requestedAt: serverTimestamp() },
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    message.textContent = action === "UNLOCK_TODAY"
+      ? "✓ Desbloqueo enviado para hoy. La tablet lo aplicará al conectarse."
+      : "✓ Bloqueo enviado. Las tareas volverán a estar activas al conectarse la tablet.";
+  } catch (err) {
+    console.error(err); message.textContent = "No se pudo enviar la orden.";
+  }
+}
+$("unlock-child-btn").addEventListener("click", () => sendParentControl("UNLOCK_TODAY"));
+$("lock-child-btn").addEventListener("click", () => sendParentControl("LOCK_TODAY"));
 $("edit-child-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!selectedChild) return;
@@ -203,6 +223,10 @@ async function showDetail(childId, c) {
   $("detail-name").textContent = c.name ?? childId;
   $("detail-sub").textContent =
     `${GRADE_LABELS[c.grade] ?? ""} · ${c.authorizedEmail ?? "Sin correo autorizado"} · Última actividad: ${fmtDateTime(c.lastSeen)}`;
+  const control = c.parentOverride;
+  $("parent-control-msg").textContent = control?.date === todayStr()
+    ? (control.action === "UNLOCK_TODAY" ? "Estado enviado: desbloqueado por padre hoy." : "Estado enviado: tareas bloqueadas por padre hoy.")
+    : "Control remoto: sin orden activa para hoy.";
 
   const body = $("days-body");
   body.innerHTML = "<tr><td colspan='6' class='muted'>Cargando…</td></tr>";

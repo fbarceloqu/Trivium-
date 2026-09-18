@@ -207,8 +207,9 @@
     <div id="detail-view" class="hidden">
       <button id="back-btn" class="ghost" style="margin-bottom:14px;">← Volver</button>
       <div class="card">
-        <div class="section-head"><h2 id="detail-name"></h2><button id="edit-child-btn" class="ghost">Editar perfil</button></div>
+        <div class="section-head"><h2 id="detail-name"></h2><div class="guide-actions"><button id="unlock-child-btn" class="ghost">🔓 Desbloquear hoy</button><button id="lock-child-btn" class="ghost">🔒 Bloquear ahora</button><button id="edit-child-btn" class="ghost">Editar perfil</button></div></div>
         <div id="detail-sub"></div>
+        <div id="parent-control-msg" class="muted" style="font-size:12px; margin:6px 0;"></div>
         <form id="edit-child-form" class="hidden" style="margin:12px 0;">
           <div class="field-row">
             <label>Nombre<input id="e-name" required /></label>

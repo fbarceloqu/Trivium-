@@ -8,6 +8,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.firestore.ListenerRegistration
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -33,6 +34,7 @@ object ProgressSync {
     private const val TAG = "TriviumSync"
     private val db get() = FirebaseFirestore.getInstance()
     private var lastEvasionReportAt = 0L
+    private var parentControlListener: ListenerRegistration? = null
 
     @SuppressLint("HardwareIds")
     fun childId(ctx: Context): String = ProfileStore.cloudChildId(ctx)
@@ -43,6 +45,30 @@ object ProgressSync {
 
     private fun childDoc(ctx: Context) = db.collection("children").document(childId(ctx))
     private fun dayDoc(ctx: Context) = childDoc(ctx).collection("days").document(today())
+
+    /** Escucha órdenes del padre sin que el niño tenga que reiniciar la app. */
+    fun startParentControlListener(ctx: Context, onAction: (unlock: Boolean) -> Unit) {
+        parentControlListener?.remove()
+        val attach = {
+            parentControlListener = childDoc(ctx).addSnapshotListener { snap, error ->
+                if (error != null || snap == null || !snap.exists()) return@addSnapshotListener
+                val control = snap.get("parentOverride") as? Map<*, *> ?: return@addSnapshotListener
+                if (control["date"] != today()) return@addSnapshotListener
+                when (control["action"] as? String) {
+                    "UNLOCK_TODAY" -> onAction(true)
+                    "LOCK_TODAY" -> onAction(false)
+                }
+            }
+        }
+        val auth = FirebaseAuth.getInstance()
+        if (auth.currentUser != null) attach()
+        else auth.signInAnonymously().addOnSuccessListener { attach() }
+    }
+
+    fun stopParentControlListener() {
+        parentControlListener?.remove()
+        parentControlListener = null
+    }
 
     /** Ejecuta [block] con sesión anónima de Firebase garantizada. */
     private fun withAuth(block: () -> Unit) {
