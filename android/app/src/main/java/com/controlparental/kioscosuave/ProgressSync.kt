@@ -84,7 +84,7 @@ object ProgressSync {
 
     /**
      * Registra/actualiza el perfil del niño y marca actividad (llamar al abrir
-     * la app). Incluye el RESPALDO del pinHash y ajustes: si se borran los
+     * la app). Incluye el verificador con sal del PIN y ajustes: si se borran los
      * datos locales o se reinstala, tryRestoreProfile los recupera.
      */
     fun registerChild(ctx: Context) {
@@ -95,7 +95,11 @@ object ProgressSync {
                 mapOf(
                     "name" to profile.name,
                     "grade" to profile.grade.name,
-                    "pinHash" to (ProfileStore.pinHash(ctx) ?: ""),
+                    "pinVerifier" to (ProfileStore.pinVerifier(ctx) ?: ""),
+                    "pinSalt" to (ProfileStore.pinSalt(ctx) ?: ""),
+                    // Migra el hash SHA-256 heredado: no lo volvemos a subir.
+                    "pinHash" to FieldValue.delete(),
+                    "deviceUid" to (FirebaseAuth.getInstance().currentUser?.uid ?: ""),
                     "blockSettings" to ProfileStore.blockSettings(ctx),
                     "emergencyCalls" to ProfileStore.emergencyCalls(ctx),
                     "lastSeen" to FieldValue.serverTimestamp(),
@@ -116,13 +120,17 @@ object ProgressSync {
         val run = {
             childDoc(ctx).get()
                 .addOnSuccessListener { snap ->
-                    val pinHash = snap.getString("pinHash")
-                    if (snap.exists() && !pinHash.isNullOrBlank()) {
+                    val pinVerifier = snap.getString("pinVerifier")
+                    val pinSalt = snap.getString("pinSalt")
+                    val legacyPinHash = snap.getString("pinHash")
+                    if (snap.exists() && (!pinVerifier.isNullOrBlank() || !legacyPinHash.isNullOrBlank())) {
                         ProfileStore.restoreFromCloud(
                             ctx,
                             name = snap.getString("name") ?: "Estudiante",
                             gradeName = snap.getString("grade"),
-                            pinHash = pinHash,
+                            pinVerifier = pinVerifier,
+                            pinSalt = pinSalt,
+                            legacyPinHash = legacyPinHash,
                             blockSettings = snap.getBoolean("blockSettings") ?: true,
                             emergencyCalls = snap.getBoolean("emergencyCalls") ?: true
                         )

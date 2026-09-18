@@ -13,6 +13,15 @@ import { initGuides, openGuidesFor } from "./guides.js";
 const $ = (id) => document.getElementById(id);
 const show = (id) => $(id).classList.remove("hidden");
 const hide = (id) => $(id).classList.add("hidden");
+// Todo dato de Firestore puede haber sido escrito por un cliente. Nunca se
+// inserta directo en innerHTML: evita que un nombre o una respuesta convierta
+// el panel del padre en una página XSS.
+const escapeHtml = (value) => String(value ?? "")
+  .replace(/&/g, "&amp;")
+  .replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;")
+  .replace(/'/g, "&#39;");
 
 // --- Config (si falta, mostrar instrucciones en vez de romper) ---
 let firebaseConfig;
@@ -211,19 +220,19 @@ async function showChildren() {
     const el = document.createElement("div");
     el.className = "card child-card";
     el.innerHTML = `
-      <h3>${c.name ?? child.id}</h3>
-      <div class="grade">${GRADE_LABELS[c.grade] ?? c.grade ?? ""}</div>
+      <h3>${escapeHtml(c.name ?? child.id)}</h3>
+      <div class="grade">${escapeHtml(GRADE_LABELS[c.grade] ?? c.grade ?? "")}</div>
       <div class="status ${unlocked ? "unlocked" : "locked"}">
-        ${unlocked ? `🔓 Desbloqueada hoy a las ${fmtTime(d.unlockedAt)}` : "🔒 Tareas pendientes hoy"}
+        ${unlocked ? `🔓 Desbloqueada hoy a las ${escapeHtml(fmtTime(d.unlockedAt))}` : "🔒 Tareas pendientes hoy"}
       </div>
       <div class="chips">
-        <span class="chip">Mate: ${stat(d?.math)}</span>
-        <span class="chip">Inglés: ${stat(d?.english)}</span>
-        <span class="chip">Lectura: ${d?.reading ? (d.reading.score ?? d.reading.correct ?? 0) : "—"}</span>
-        <span class="chip">${evas > 0 ? `⚠️ ${evas} intentos de salir` : "Sin evasiones"}</span>
+        <span class="chip">Mate: ${escapeHtml(stat(d?.math))}</span>
+        <span class="chip">Inglés: ${escapeHtml(stat(d?.english))}</span>
+        <span class="chip">Lectura: ${escapeHtml(d?.reading ? (d.reading.score ?? d.reading.correct ?? 0) : "—")}</span>
+        <span class="chip">${escapeHtml(evas > 0 ? `⚠️ ${evas} intentos de salir` : "Sin evasiones")}</span>
       </div>
-      <div class="lastseen">Última actividad: ${fmtDateTime(c.lastSeen)}</div>
-      <div class="lastseen">Cuenta autorizada: ${c.authorizedEmail ?? "Pendiente de configurar"}</div>
+      <div class="lastseen">Última actividad: ${escapeHtml(fmtDateTime(c.lastSeen))}</div>
+      <div class="lastseen">Cuenta autorizada: ${escapeHtml(c.authorizedEmail ?? "Pendiente de configurar")}</div>
     `;
     el.addEventListener("click", () => showDetail(child.id, c));
     grid.appendChild(el);
@@ -266,12 +275,12 @@ async function showDetail(childId, c) {
     const evas = d.evasions?.count ?? 0;
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${day.id}</td>
-      <td>${stat(d.math)}</td>
-      <td>${stat(d.english)}</td>
-      <td>${reading}</td>
-      <td class="${d.unlockedAt ? "ok" : "bad"}">${d.unlockedAt ? fmtTime(d.unlockedAt) : "No desbloqueó"}</td>
-      <td class="${evas > 0 ? "warn" : ""}">${evas > 0 ? `⚠️ ${evas}` : "0"}</td>
+      <td>${escapeHtml(day.id)}</td>
+      <td>${escapeHtml(stat(d.math))}</td>
+      <td>${escapeHtml(stat(d.english))}</td>
+      <td>${escapeHtml(reading)}</td>
+      <td class="${d.unlockedAt ? "ok" : "bad"}">${escapeHtml(d.unlockedAt ? fmtTime(d.unlockedAt) : "No desbloqueó")}</td>
+      <td class="${evas > 0 ? "warn" : ""}">${escapeHtml(evas > 0 ? `⚠️ ${evas}` : "0")}</td>
     `;
     body.appendChild(tr);
   }

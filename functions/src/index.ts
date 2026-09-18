@@ -80,7 +80,8 @@ async function cacheContent(id: string, kind: string, payload: unknown, days = 3
 /**
  * Verifica que el usuario solo solicite contenido de su propio perfil.
  * Las sesiones anónimas se mantienen temporalmente por compatibilidad con APKs
- * antiguos, pero se limitan a un childId existente. El nuevo flujo usa Google.
+ * antiguos, pero solo si el perfil está ligado a su mismo UID. El nuevo flujo
+ * usa Google y correo autorizado.
  */
 async function authorize(request: {auth?: {token: Record<string, unknown>} | null}, childId: string): Promise<AuthContext> {
   if (!request.auth) {
@@ -103,7 +104,7 @@ async function authorize(request: {auth?: {token: Record<string, unknown>} | nul
   if (provider === "google.com" && child.data()?.authorizedEmail === email) {
     return {childId, role: "student"};
   }
-  if (provider === "anonymous") {
+  if (provider === "anonymous" && child.data()?.deviceUid === token.uid) {
     return {childId, role: "legacy-tablet"};
   }
   throw new HttpsError("permission-denied", "Esta cuenta no está autorizada para este alumno.");
@@ -309,7 +310,10 @@ export const evaluateSummary = onCall({region: "us-central1", timeoutSeconds: 60
     return {mode: "ai", ...result, score: Math.max(0, Math.min(100, result.score))};
   } catch (error) {
     logger.error("No se pudo evaluar resumen", error);
-    return {mode: "local", approved: false, score: 45, feedback: "No pudimos analizar tu resumen en línea todavía.", suggestions: "Guárdalo y vuelve a intentarlo cuando haya conexión."};
+    // El cliente interpreta una Function fallida como señal para usar su
+    // heurística local. Nunca devolvemos un 45 artificial como si fuera una
+    // calificación real del niño.
+    throw new HttpsError("unavailable", "La evaluación en línea no está disponible; usa el respaldo local.");
   }
 });
 

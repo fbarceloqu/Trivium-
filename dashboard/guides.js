@@ -19,6 +19,18 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const MODE_LABEL = { EXAM_PREP: "📝 Examen", LEARNING: "🧠 Aprendizaje" };
+const escapeHtml = (value) => String(value ?? "")
+  .replace(/&/g, "&amp;")
+  .replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;")
+  .replace(/'/g, "&#39;");
+const safeFileUrl = (value) => {
+  try {
+    const url = new URL(String(value));
+    return url.protocol === "https:" ? url.href : null;
+  } catch (_) { return null; }
+};
 
 let db = null;
 let storage = null;
@@ -203,7 +215,7 @@ function render(id, g, dominio) {
   const pill = g.paused
     ? '<span class="pill paused">Pausada</span>'
     : `<span class="pill ${g.mode === "EXAM_PREP" ? "exam" : "learn"}">${
-        MODE_LABEL[g.mode] ?? g.mode
+        escapeHtml(MODE_LABEL[g.mode] ?? g.mode)
       }</span>`;
 
   // Habilidades con práctica registrada, de peor a mejor. El emparejamiento
@@ -215,10 +227,10 @@ function render(id, g, dominio) {
   const barras = medidas
     .slice(0, 6)
     .map(([sid, d]) => {
-      const pct = Math.round((d.accuracy ?? 0) * 100);
+      const pct = Math.max(0, Math.min(100, Math.round(Number(d.accuracy) * 100 || 0)));
       const color = pct >= 80 ? "var(--green)" : pct >= 60 ? "var(--amber)" : "var(--red)";
       return `<div class="bar-row">
-        <span>${short(sid)}</span>
+        <span>${escapeHtml(short(sid))}</span>
         <span class="bar"><i style="width:${pct}%; background:${color}"></i></span>
         <span class="muted">${pct}%</span>
       </div>`;
@@ -227,33 +239,34 @@ function render(id, g, dominio) {
 
   const flojo = medidas[0];
   const takeaway = flojo
-    ? `<div class="takeaway">⚠️ Necesita reforzar <b>${short(flojo[0])}</b>
+    ? `<div class="takeaway">⚠️ Necesita reforzar <b>${escapeHtml(short(flojo[0]))}</b>
        (va en ${Math.round((flojo[1].accuracy ?? 0) * 100)}%).
        Trivium seguirá trabajando ese tema y lo volverá a evaluar.</div>`
     : `<div class="takeaway">Todavía no hay práctica registrada de estos temas.
-       Aparecerán aquí en cuanto ${child.name} empiece sus retos.</div>`;
+       Aparecerán aquí en cuanto ${escapeHtml(child.name)} empiece sus retos.</div>`;
 
-  const enlace = g.fileUrl
-    ? ` · <a href="${g.fileUrl}" target="_blank" rel="noopener" style="color:var(--indigo)">ver archivo</a>`
+  const fileUrl = safeFileUrl(g.fileUrl);
+  const enlace = fileUrl
+    ? ` · <a href="${escapeHtml(fileUrl)}" target="_blank" rel="noopener" style="color:var(--indigo)">ver archivo</a>`
     : "";
 
   el.innerHTML = `
     <div class="guide-top">
       <div>
-        <h4>${g.title ?? "(sin título)"} ${pill}</h4>
-        <div class="meta">${cuando} · ${g.topics?.length ?? 0} temas${enlace}</div>
+        <h4>${escapeHtml(g.title ?? "(sin título)")} ${pill}</h4>
+        <div class="meta">${escapeHtml(cuando)} · ${escapeHtml(g.topics?.length ?? 0)} temas${enlace}</div>
       </div>
       <div class="guide-actions">
         <button class="ghost" data-act="pause">${g.paused ? "Reanudar" : "Pausar"}</button>
         <button class="ghost" data-act="del">Eliminar</button>
       </div>
     </div>
-    <div class="meta" style="margin-top:8px">${(g.topics ?? []).join(" · ")}</div>
+    <div class="meta" style="margin-top:8px">${escapeHtml((g.topics ?? []).join(" · "))}</div>
     ${String((g.topics ?? []).join(" ")).toLowerCase().includes("spelling")
-      ? `<div class="meta" style="margin-top:6px">Meta del refuerzo: <b>${g.correctTarget ?? 30} respuestas correctas</b></div>`
+      ? `<div class="meta" style="margin-top:6px">Meta del refuerzo: <b>${escapeHtml(g.correctTarget ?? 30)} respuestas correctas</b></div>`
       : ""}
     ${(g.spellingWords ?? []).length
-      ? `<div class="meta" style="margin-top:6px">Palabras: ${(g.spellingWords ?? []).join(" · ")}</div>`
+      ? `<div class="meta" style="margin-top:6px">Palabras: ${escapeHtml((g.spellingWords ?? []).join(" · "))}</div>`
       : ""}
     <div class="bars">${barras}</div>
     ${takeaway}

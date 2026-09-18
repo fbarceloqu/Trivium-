@@ -9,9 +9,6 @@ rules_version = '2';
 // dashboard/app.js. Esta es la defensa real (las reglas del cliente se pueden
 // saltar); la del cliente solo evita mostrar la UI a quien no debe.
 //
-// Limitación conocida (aceptable a escala familiar): cualquier sesión anónima
-// del proyecto cuenta como "tablet". En una fase posterior se puede ligar cada
-// documento al UID del dispositivo que lo creó.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -37,35 +34,52 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/children/$(childId)).data.authorizedEmail
           == request.auth.token.email;
     }
+    // Una tablet anónima solo puede tocar el perfil al que se ligó al crearlo.
+    // Antes, cualquier sesión anónima podía enumerar y modificar a cualquier
+    // niño. deviceUid se guarda desde ProgressSync.registerChild().
+    function isDeviceOwner(childId) {
+      return isTablet()
+        && get(/databases/$(database)/documents/children/$(childId)).data.deviceUid
+          == request.auth.uid;
+    }
+    function canUpdateOwnRoot() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'name', 'grade', 'pinVerifier', 'pinSalt', 'pinHash',
+        'blockSettings', 'emergencyCalls', 'deviceUid', 'lastSeen', 'updatedAt'
+      ]);
+    }
 
     match /children/{childId} {
-      allow read: if isParent() || isTablet() || isStudentOwner(childId);
-      allow create: if isParent() || isTablet();
-      allow update: if isParent() || isTablet() || (
-        isStudentOwner(childId)
+      allow read: if isParent() || isDeviceOwner(childId) || isStudentOwner(childId);
+      allow create: if isParent() || (
+        isTablet() && request.resource.data.deviceUid == request.auth.uid
+      );
+      allow update: if isParent() || (
+        (isDeviceOwner(childId) || isStudentOwner(childId))
+        && canUpdateOwnRoot()
         && request.resource.data.authorizedEmail == resource.data.authorizedEmail
       );
       match /days/{day} {
-        allow read, write: if isParent() || isTablet() || isStudentOwner(childId);
+        allow read, write: if isParent() || isDeviceOwner(childId) || isStudentOwner(childId);
       }
       // Memoria de aprendizaje: la tablet la escribe, el padre la lee para el
       // mapa de dominio. El padre NO escribe aquí: el dominio lo determina el
       // desempeño del niño, no lo que un adulto declare.
       match /skills/{skillId} {
-        allow read: if isParent() || isTablet() || isStudentOwner(childId);
-        allow write: if isTablet() || isStudentOwner(childId);
+        allow read: if isParent() || isDeviceOwner(childId) || isStudentOwner(childId);
+        allow write: if isDeviceOwner(childId) || isStudentOwner(childId);
       }
       // Guías subidas por el padre. Al revés que arriba: el padre las crea y
       // la tablet solo las lee para planificar el repaso.
       match /guides/{guideId} {
-        allow read: if isParent() || isTablet() || isStudentOwner(childId);
+        allow read: if isParent() || isDeviceOwner(childId) || isStudentOwner(childId);
         allow write: if isParent();
       }
       // Detalle de una sesión: preguntas, respuesta elegida y explicación.
       // La tablet lo escribe; únicamente los padres autorizados pueden leerlo.
       match /days/{day}/sessions/{sessionId} {
-        allow read: if isParent() || isStudentOwner(childId);
-        allow write: if isTablet() || isStudentOwner(childId);
+        allow read: if isParent() || isDeviceOwner(childId) || isStudentOwner(childId);
+        allow write: if isDeviceOwner(childId) || isStudentOwner(childId);
       }
     }
 

@@ -1548,7 +1548,14 @@ object ChallengeEngine {
                 )
             }
             2 -> {
-                val others = listOf("cat", "dog", "sun", "fish", "pen", "map").shuffled().take(3)
+                // Los distractores NUNCA pueden empezar con la misma letra.
+                // Antes "sun" aparecía como distractor de una palabra S: había
+                // dos respuestas válidas y se marcaba incorrecta una buena.
+                val others = spellingDistractors
+                    .filter { it.firstOrNull()?.uppercaseChar() != upper && it != word }
+                    .distinct()
+                    .shuffled()
+                    .take(3)
                 EnglishExercise(
                     "Busca una palabra que empiece con $upper.",
                     "¿Cuál comienza con la letra $upper?",
@@ -1567,6 +1574,12 @@ object ChallengeEngine {
             )
         }
     }
+
+    private val spellingDistractors = listOf(
+        "cat", "dog", "fish", "pen", "map", "red", "ten", "frog",
+        "cup", "moon", "rain", "tree", "yellow", "kite", "van",
+        "zoo", "egg", "lion", "orange", "queen", "rabbit"
+    )
 
     private fun spell(word: String): String = word.uppercase().toCharArray().joinToString("-")
 
