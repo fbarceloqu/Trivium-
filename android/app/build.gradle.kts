@@ -30,6 +30,12 @@ val localProperties = Properties().apply {
 val legacyKey: String = localProperties.getProperty("GEMINI_API_KEY", "")
 val geminiKeyFree: String = localProperties.getProperty("GEMINI_API_KEY_FREE", "")
 val geminiKeyBilling: String = localProperties.getProperty("GEMINI_API_KEY_BILLING", legacyKey)
+// Un OAuth client ID es público (no es un secreto ni una API key). Se permite
+// sobrescribir para otro proyecto desde local.properties.
+val googleWebClientId: String = localProperties.getProperty(
+    "GOOGLE_WEB_CLIENT_ID",
+    "469846995967-cd8pigjnhv9ptkuq6ei0jp9p2n4jgcin.apps.googleusercontent.com"
+)
 
 android {
     namespace = "com.controlparental.kioscosuave"
@@ -44,6 +50,7 @@ android {
         vectorDrawables { useSupportLibrary = true }
         buildConfigField("String", "GEMINI_API_KEY_FREE", "\"$geminiKeyFree\"")
         buildConfigField("String", "GEMINI_API_KEY_BILLING", "\"$geminiKeyBilling\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
 
     buildTypes {
@@ -84,6 +91,9 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.16.0"))
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-auth")
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.activity:activity-compose:1.9.0")

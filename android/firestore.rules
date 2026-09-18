@@ -27,30 +27,45 @@ service cloud.firestore {
       return request.auth != null
         && request.auth.token.firebase.sign_in_provider == 'anonymous';
     }
+    function isStudent() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && !isParent();
+    }
+    function isStudentOwner(childId) {
+      return isStudent()
+        && get(/databases/$(database)/documents/children/$(childId)).data.authorizedEmail
+          == request.auth.token.email;
+    }
 
     match /children/{childId} {
-      allow read, write: if isParent() || isTablet();
+      allow read: if isParent() || isTablet() || isStudentOwner(childId);
+      allow create: if isParent() || isTablet();
+      allow update: if isParent() || isTablet() || (
+        isStudentOwner(childId)
+        && request.resource.data.authorizedEmail == resource.data.authorizedEmail
+      );
       match /days/{day} {
-        allow read, write: if isParent() || isTablet();
+        allow read, write: if isParent() || isTablet() || isStudentOwner(childId);
       }
       // Memoria de aprendizaje: la tablet la escribe, el padre la lee para el
       // mapa de dominio. El padre NO escribe aquí: el dominio lo determina el
       // desempeño del niño, no lo que un adulto declare.
       match /skills/{skillId} {
-        allow read: if isParent() || isTablet();
-        allow write: if isTablet();
+        allow read: if isParent() || isTablet() || isStudentOwner(childId);
+        allow write: if isTablet() || isStudentOwner(childId);
       }
       // Guías subidas por el padre. Al revés que arriba: el padre las crea y
       // la tablet solo las lee para planificar el repaso.
       match /guides/{guideId} {
-        allow read: if isParent() || isTablet();
+        allow read: if isParent() || isTablet() || isStudentOwner(childId);
         allow write: if isParent();
       }
       // Detalle de una sesión: preguntas, respuesta elegida y explicación.
       // La tablet lo escribe; únicamente los padres autorizados pueden leerlo.
       match /days/{day}/sessions/{sessionId} {
-        allow read: if isParent();
-        allow write: if isTablet();
+        allow read: if isParent() || isStudentOwner(childId);
+        allow write: if isTablet() || isStudentOwner(childId);
       }
     }
 

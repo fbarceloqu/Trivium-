@@ -17,6 +17,7 @@ object ProfileStore {
     private const val KEY_PIN_HASH = "parent_pin_hash"
     private const val KEY_BLOCK_SETTINGS = "block_settings"
     private const val KEY_EMERGENCY_CALLS = "emergency_calls"
+    private const val KEY_CLOUD_CHILD_ID = "cloud_child_id"
 
     private fun prefs(ctx: Context) =
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -106,6 +107,14 @@ object ProfileStore {
 
     fun hasPin(ctx: Context): Boolean =
         prefs(ctx).getString(KEY_PIN_HASH, null) != null
+
+    /** ID estable creado por el padre en el panel; no depende de la tablet. */
+    fun cloudChildId(ctx: Context): String? =
+        prefs(ctx).getString(KEY_CLOUD_CHILD_ID, null)?.takeIf { it.isNotBlank() }
+
+    fun setCloudChildId(ctx: Context, childId: String) {
+        prefs(ctx).edit().putString(KEY_CLOUD_CHILD_ID, childId).apply()
+    }
 
     private fun sha256(input: String): String =
         MessageDigest.getInstance("SHA-256")

@@ -6,7 +6,7 @@ import {
   getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, collection, getDocs, doc, getDoc,
+  getFirestore, collection, getDocs, doc, getDoc, setDoc, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { initGuides, openGuidesFor } from "./guides.js";
 
@@ -85,6 +85,39 @@ $("google-login-btn").addEventListener("click", async () => {
 $("logout-btn").addEventListener("click", () => signOut(auth));
 $("back-btn").addEventListener("click", () => { hide("detail-view"); show("children-view"); });
 
+$("toggle-child-form").addEventListener("click", () => {
+  $("child-form").classList.toggle("hidden");
+  $("child-error").textContent = "";
+});
+$("c-cancel").addEventListener("click", () => {
+  $("child-form").reset(); hide("child-form");
+});
+$("child-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const name = $("c-name").value.trim();
+  const email = $("c-email").value.trim().toLowerCase();
+  const error = $("child-error");
+  error.textContent = "";
+  if (!name || !email) return;
+  if (ALLOWED_PARENT_EMAILS.includes(email)) {
+    error.textContent = "Usa la cuenta Google del alumno, no una cuenta de padre/madre.";
+    return;
+  }
+  const button = event.submitter;
+  button.disabled = true;
+  try {
+    const id = `child_${Date.now()}`;
+    await setDoc(doc(db, "children", id), {
+      name, grade: $("c-grade").value, authorizedEmail: email,
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+      source: "parent-dashboard"
+    });
+    $("child-form").reset(); hide("child-form"); showChildren();
+  } catch (err) {
+    console.error(err); error.textContent = "No se pudo crear el perfil. Revisa las reglas de Firestore.";
+  } finally { button.disabled = false; }
+});
+
 // --- Vista: tarjetas de los hijos ---
 async function showChildren() {
   hide("detail-view"); show("children-view");
@@ -119,7 +152,7 @@ async function showChildren() {
         <span class="chip">${evas > 0 ? `⚠️ ${evas} intentos de salir` : "Sin evasiones"}</span>
       </div>
       <div class="lastseen">Última actividad: ${fmtDateTime(c.lastSeen)}</div>
-      <div class="lastseen" style="opacity:.6">Dispositivo ${child.id}</div>
+      <div class="lastseen">Cuenta autorizada: ${c.authorizedEmail ?? "Pendiente de configurar"}</div>
     `;
     el.addEventListener("click", () => showDetail(child.id, c));
     grid.appendChild(el);
@@ -132,7 +165,7 @@ async function showDetail(childId, c) {
   openGuidesFor(childId, c.name ?? childId);
   $("detail-name").textContent = c.name ?? childId;
   $("detail-sub").textContent =
-    `${GRADE_LABELS[c.grade] ?? ""} · Dispositivo ${childId} · Última actividad: ${fmtDateTime(c.lastSeen)}`;
+    `${GRADE_LABELS[c.grade] ?? ""} · ${c.authorizedEmail ?? "Sin correo autorizado"} · Última actividad: ${fmtDateTime(c.lastSeen)}`;
 
   const body = $("days-body");
   body.innerHTML = "<tr><td colspan='6' class='muted'>Cargando…</td></tr>";

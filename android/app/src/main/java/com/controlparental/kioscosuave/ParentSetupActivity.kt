@@ -109,6 +109,7 @@ class ParentSetupActivity : ComponentActivity() {
         var blockSettings by remember { mutableStateOf(ProfileStore.blockSettings(ctx)) }
         var emergencyCalls by remember { mutableStateOf(ProfileStore.emergencyCalls(ctx)) }
         var errorMsg by remember { mutableStateOf<String?>(null) }
+        var googleMsg by remember { mutableStateOf<String?>(null) }
 
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp)
@@ -160,6 +161,21 @@ class ParentSetupActivity : ComponentActivity() {
 
             SwitchRow("Bloquear Ajustes del sistema", blockSettings) { blockSettings = it }
             SwitchRow("Permitir llamadas de emergencia", emergencyCalls) { emergencyCalls = it }
+
+            Spacer(Modifier.height(12.dp))
+            Text("Cuenta del alumno", style = MaterialTheme.typography.labelLarge)
+            Text(
+                "Vincúlala con el correo autorizado en el Panel de Padres para recuperar el mismo perfil en otra tablet.",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = {
+                googleMsg = "Elige la cuenta Google del alumno…"
+                StudentGoogleAuth.connect(this@ParentSetupActivity) { message ->
+                    googleMsg = message ?: "Cuenta vinculada correctamente."
+                }
+            }, modifier = Modifier.fillMaxWidth()) { Text("Vincular cuenta Google del alumno") }
+            googleMsg?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
 
             errorMsg?.let {
                 Spacer(Modifier.height(8.dp))

@@ -134,6 +134,17 @@ class LauncherActivity : ComponentActivity() {
             Button(onClick = { openParentSetup() }) {
                 Text("Configuración parental")
             }
+            androidx.compose.foundation.layout.Spacer(Modifier.padding(6.dp))
+            Button(onClick = {
+                cloudMsg = "Elige la cuenta Google autorizada del alumno…"
+                StudentGoogleAuth.connect(this@LauncherActivity) { error ->
+                    if (error != null) cloudMsg = error
+                    else ProgressSync.tryRestoreProfile(this@LauncherActivity) { restored ->
+                        cloudMsg = if (restored) "¡Perfil restaurado con Google!" else "Cuenta conectada. Configura el perfil desde el panel."
+                        refreshTick.intValue++
+                    }
+                }
+            }) { Text("Entrar con Google del alumno") }
         }
     }
 

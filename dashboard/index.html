@@ -173,6 +173,30 @@
 
     <!-- Lista de hijos -->
     <div id="children-view" class="hidden">
+      <div class="card" style="margin-bottom:16px;">
+        <div class="section-head">
+          <h2>👤 Registrar hijo</h2>
+          <button id="toggle-child-form" class="ghost">+ Agregar hijo</button>
+        </div>
+        <p class="muted" style="font-size:13px; margin-top:6px;">El correo autorizado es la cuenta Google del alumno que podrá abrir su perfil desde cualquier tablet.</p>
+        <form id="child-form" class="hidden" style="margin-top:14px;">
+          <div class="field-row">
+            <label>Nombre<input id="c-name" required placeholder="Gael" /></label>
+            <label>Nivel
+              <select id="c-grade">
+                <option value="PREESCOLAR">Preescolar / 1º</option>
+                <option value="PRIMARIA">Primaria</option>
+                <option value="SECUNDARIA">Secundaria</option>
+              </select>
+            </label>
+          </div>
+          <label>Correo Google autorizado del alumno
+            <input id="c-email" type="email" required placeholder="alumno@gmail.com" autocomplete="email" />
+          </label>
+          <div class="form-actions"><button type="submit">Crear perfil</button><button type="button" id="c-cancel" class="ghost">Cancelar</button></div>
+          <div class="error" id="child-error"></div>
+        </form>
+      </div>
       <div class="grid" id="children-grid"></div>
       <p class="muted" id="children-empty" style="margin-top:16px; display:none;">
         Aún no hay tablets registradas. Abre Kiosco Suave en una tablet con internet y aparecerá aquí.

@@ -35,8 +35,8 @@ object ProgressSync {
     private var lastEvasionReportAt = 0L
 
     @SuppressLint("HardwareIds")
-    fun childId(ctx: Context): String =
-        Settings.Secure.getString(ctx.contentResolver, Settings.Secure.ANDROID_ID) ?: "unknown"
+    fun childId(ctx: Context): String = ProfileStore.cloudChildId(ctx)
+        ?: (Settings.Secure.getString(ctx.contentResolver, Settings.Secure.ANDROID_ID) ?: "unknown")
 
     private fun today(): String =
         SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
