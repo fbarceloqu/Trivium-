@@ -207,8 +207,23 @@
     <div id="detail-view" class="hidden">
       <button id="back-btn" class="ghost" style="margin-bottom:14px;">← Volver</button>
       <div class="card">
-        <h2 id="detail-name"></h2>
+        <div class="section-head"><h2 id="detail-name"></h2><button id="edit-child-btn" class="ghost">Editar perfil</button></div>
         <div id="detail-sub"></div>
+        <form id="edit-child-form" class="hidden" style="margin:12px 0;">
+          <div class="field-row">
+            <label>Nombre<input id="e-name" required /></label>
+            <label>Nivel
+              <select id="e-grade">
+                <option value="PREESCOLAR">Preescolar / 1º</option>
+                <option value="PRIMARIA">Primaria</option>
+                <option value="SECUNDARIA">Secundaria</option>
+              </select>
+            </label>
+          </div>
+          <label>Correo Google autorizado del alumno<input id="e-email" type="email" required /></label>
+          <div class="form-actions"><button type="submit">Guardar cambios</button><button type="button" id="e-cancel" class="ghost">Cancelar</button></div>
+          <div id="edit-child-error" class="error"></div>
+        </form>
         <table>
           <thead>
             <tr>

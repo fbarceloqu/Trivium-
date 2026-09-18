@@ -43,6 +43,7 @@ const GRADE_LABELS = {
   PRIMARIA: "Primaria",
   SECUNDARIA: "Secundaria",
 };
+let selectedChild = null;
 
 const todayStr = () => {
   const d = new Date();
@@ -84,6 +85,40 @@ $("google-login-btn").addEventListener("click", async () => {
 
 $("logout-btn").addEventListener("click", () => signOut(auth));
 $("back-btn").addEventListener("click", () => { hide("detail-view"); show("children-view"); });
+$("edit-child-btn").addEventListener("click", () => {
+  if (!selectedChild) return;
+  $("e-name").value = selectedChild.data.name ?? "";
+  $("e-grade").value = selectedChild.data.grade ?? "PRIMARIA";
+  $("e-email").value = selectedChild.data.authorizedEmail ?? "";
+  $("edit-child-error").textContent = "";
+  $("edit-child-form").classList.toggle("hidden");
+});
+$("e-cancel").addEventListener("click", () => hide("edit-child-form"));
+$("edit-child-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!selectedChild) return;
+  const error = $("edit-child-error");
+  const email = $("e-email").value.trim().toLowerCase();
+  error.textContent = "";
+  if (ALLOWED_PARENT_EMAILS.includes(email)) {
+    error.textContent = "Usa la cuenta del alumno, no la cuenta de padre/madre.";
+    return;
+  }
+  const button = event.submitter;
+  button.disabled = true;
+  try {
+    await setDoc(doc(db, "children", selectedChild.id), {
+      name: $("e-name").value.trim(), grade: $("e-grade").value,
+      authorizedEmail: email, updatedAt: serverTimestamp()
+    }, { merge: true });
+    selectedChild.data = { ...selectedChild.data, name: $("e-name").value.trim(), grade: $("e-grade").value, authorizedEmail: email };
+    $("detail-name").textContent = selectedChild.data.name;
+    $("detail-sub").textContent = `${GRADE_LABELS[selectedChild.data.grade]} · ${email} · Última actividad: ${fmtDateTime(selectedChild.data.lastSeen)}`;
+    hide("edit-child-form");
+  } catch (err) {
+    console.error(err); error.textContent = "No se pudo guardar. Revisa las reglas de Firestore.";
+  } finally { button.disabled = false; }
+});
 
 $("toggle-child-form").addEventListener("click", () => {
   $("child-form").classList.toggle("hidden");
@@ -161,7 +196,9 @@ async function showChildren() {
 
 // --- Vista: historial de un hijo (últimos 14 días) ---
 async function showDetail(childId, c) {
+  selectedChild = { id: childId, data: { ...c } };
   hide("children-view"); show("detail-view");
+  hide("edit-child-form");
   openGuidesFor(childId, c.name ?? childId);
   $("detail-name").textContent = c.name ?? childId;
   $("detail-sub").textContent =
