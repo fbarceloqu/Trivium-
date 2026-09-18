@@ -138,8 +138,8 @@ class ParentSetupActivity : ComponentActivity() {
                 }
             }
             Text(
-                "La dificultad se ajusta sola: Preescolar/1º = contar dibujos y palabras " +
-                    "con imágenes; Primaria = sumas y restas; Secundaria = ecuaciones y textos largos.",
+                "La dificultad se ajusta sola: 1º de primaria = contar dibujos y palabras " +
+                    "con imágenes; Primaria (2º a 6º) = sumas y restas; Secundaria = ecuaciones y textos largos.",
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = 4.dp)
             )

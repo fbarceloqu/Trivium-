@@ -3,10 +3,15 @@ package com.controlparental.kioscosuave
 /**
  * Nivel escolar del menor. Determina automáticamente la dificultad y las metas
  * de los retos (decisión: "dificultad automática por nivel escolar").
+ *
+ * El nombre interno PREESCOLAR se conserva aunque se muestre como "1º de
+ * primaria": es el valor guardado en la tablet y en Firestore, y si se
+ * renombrara, [fromName] no lo reconocería y el perfil existente caería en
+ * PRIMARIA sin avisar. Lo que ve el usuario es [label].
  */
 enum class GradeLevel(val label: String) {
-    PREESCOLAR("Preescolar / 1º"),
-    PRIMARIA("Primaria"),
+    PREESCOLAR("1º de primaria"),
+    PRIMARIA("Primaria (2º a 6º)"),
     SECUNDARIA("Secundaria");
 
     companion object {

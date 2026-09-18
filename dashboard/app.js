@@ -38,9 +38,11 @@ const ALLOWED_PARENT_EMAILS = [
   "anaid.torresu@gmail.com",
 ];
 
+// La clave PREESCOLAR es el valor guardado en Firestore y se conserva por
+// compatibilidad; al usuario se le muestra como "1º de primaria".
 const GRADE_LABELS = {
-  PREESCOLAR: "Preescolar / 1º",
-  PRIMARIA: "Primaria",
+  PREESCOLAR: "1º de primaria",
+  PRIMARIA: "Primaria (2º a 6º)",
   SECUNDARIA: "Secundaria",
 };
 let selectedChild = null;
