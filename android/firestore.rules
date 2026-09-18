@@ -29,18 +29,32 @@ service cloud.firestore {
         && request.auth.token.firebase.sign_in_provider == 'google.com'
         && !isParent();
     }
+    // get(campo, valor por defecto) en todas partes: leer un campo que no
+    // existe es un ERROR en las reglas, y un error niega la operación. Los
+    // perfiles viejos no tienen deviceUid y algunos no tienen authorizedEmail.
     function isStudentOwner(childId) {
       return isStudent()
-        && get(/databases/$(database)/documents/children/$(childId)).data.authorizedEmail
+        && get(/databases/$(database)/documents/children/$(childId)).data.get('authorizedEmail', '')
           == request.auth.token.email;
     }
-    // Una tablet anónima solo puede tocar el perfil al que se ligó al crearlo.
-    // Antes, cualquier sesión anónima podía enumerar y modificar a cualquier
-    // niño. deviceUid se guarda desde ProgressSync.registerChild().
+    // Una tablet anónima solo ESCRIBE en el perfil al que está ligada
+    // (deviceUid, lo guarda ProgressSync.registerChild()).
     function isDeviceOwner(childId) {
       return isTablet()
-        && get(/databases/$(database)/documents/children/$(childId)).data.deviceUid
+        && get(/databases/$(database)/documents/children/$(childId)).data.get('deviceUid', '')
           == request.auth.uid;
+    }
+    // Tablet ya ligada, o tablet que se liga a un perfil que aún no tiene
+    // dueño. Los perfiles creados antes del deviceUid no lo tienen: sin esto,
+    // las tablets que ya estaban en uso no podrían volver a escribir nunca.
+    // Para ligarse hay que conocer el ID exacto del perfil, y ya nadie puede
+    // listar perfiles ajenos.
+    function isOwnerOrClaimingTablet() {
+      return isTablet() && (
+        resource.data.get('deviceUid', '') == request.auth.uid
+        || (resource.data.get('deviceUid', '') == ''
+          && request.resource.data.get('deviceUid', '') == request.auth.uid)
+      );
     }
     function canUpdateOwnRoot() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -48,16 +62,31 @@ service cloud.firestore {
         'blockSettings', 'emergencyCalls', 'deviceUid', 'lastSeen', 'updatedAt'
       ]);
     }
+    // El correo autorizado solo lo cambia el padre.
+    function keepsAuthorizedEmail() {
+      return request.resource.data.get('authorizedEmail', '')
+        == resource.data.get('authorizedEmail', '');
+    }
 
     match /children/{childId} {
-      allow read: if isParent() || isDeviceOwner(childId) || isStudentOwner(childId);
+      // Lectura de UN perfil por su ID. Cualquier tablet puede hacerla: tras
+      // borrar los datos de la app, la sesión anónima es otra y la tablet
+      // necesita leer su perfil para restaurar el PIN del padre. Si no, el
+      // niño vería la pantalla de configuración y pondría su propio PIN.
+      // Sin 'list', nadie puede enumerar ni descubrir IDs ajenos.
+      allow get: if isParent() || isStudentOwner(childId) || isTablet();
+      // Listar: el padre, o el alumno buscando SU perfil por correo
+      // (StudentGoogleAuth). La consulta tiene que filtrar por authorizedEmail;
+      // una regla con get() por documento no sirve para consultas.
+      allow list: if isParent()
+        || (isStudent() && resource.data.authorizedEmail == request.auth.token.email);
       allow create: if isParent() || (
         isTablet() && request.resource.data.deviceUid == request.auth.uid
       );
       allow update: if isParent() || (
-        (isDeviceOwner(childId) || isStudentOwner(childId))
+        (isOwnerOrClaimingTablet() || isStudentOwner(childId))
         && canUpdateOwnRoot()
-        && request.resource.data.authorizedEmail == resource.data.authorizedEmail
+        && keepsAuthorizedEmail()
       );
       match /days/{day} {
         allow read, write: if isParent() || isDeviceOwner(childId) || isStudentOwner(childId);
@@ -76,7 +105,7 @@ service cloud.firestore {
         allow write: if isParent();
       }
       // Detalle de una sesión: preguntas, respuesta elegida y explicación.
-      // La tablet lo escribe; únicamente los padres autorizados pueden leerlo.
+      // La tablet lo escribe; lo leen el padre y la propia tablet o alumno.
       match /days/{day}/sessions/{sessionId} {
         allow read: if isParent() || isDeviceOwner(childId) || isStudentOwner(childId);
         allow write: if isDeviceOwner(childId) || isStudentOwner(childId);

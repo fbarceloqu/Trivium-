@@ -91,22 +91,30 @@ object ProgressSync {
         if (!ProfileStore.isConfigured(ctx)) return
         val profile = ProfileStore.getProfile(ctx)
         withAuth {
-            childDoc(ctx).set(
-                mapOf(
-                    "name" to profile.name,
-                    "grade" to profile.grade.name,
-                    "pinVerifier" to (ProfileStore.pinVerifier(ctx) ?: ""),
-                    "pinSalt" to (ProfileStore.pinSalt(ctx) ?: ""),
-                    // Migra el hash SHA-256 heredado: no lo volvemos a subir.
-                    "pinHash" to FieldValue.delete(),
-                    "deviceUid" to (FirebaseAuth.getInstance().currentUser?.uid ?: ""),
-                    "blockSettings" to ProfileStore.blockSettings(ctx),
-                    "emergencyCalls" to ProfileStore.emergencyCalls(ctx),
-                    "lastSeen" to FieldValue.serverTimestamp(),
-                    "updatedAt" to FieldValue.serverTimestamp()
-                ),
-                SetOptions.merge()
-            ).addOnFailureListener { Log.w(TAG, "registerChild: ${it.message}") }
+            val data = mutableMapOf<String, Any>(
+                "name" to profile.name,
+                "grade" to profile.grade.name,
+                "deviceUid" to (FirebaseAuth.getInstance().currentUser?.uid ?: ""),
+                "blockSettings" to ProfileStore.blockSettings(ctx),
+                "emergencyCalls" to ProfileStore.emergencyCalls(ctx),
+                "lastSeen" to FieldValue.serverTimestamp(),
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+            // El PIN solo se toca cuando ya existe el verificador PBKDF2. Una
+            // tablet que se actualizó pero cuyo padre aún no escribe el PIN
+            // sigue con el hash viejo en local: si aquí se borrara pinHash, la
+            // nube se quedaría sin respaldo y un borrado de datos dejaría la
+            // configuración abierta para que el niño pusiera su propio PIN.
+            val verifier = ProfileStore.pinVerifier(ctx)
+            val salt = ProfileStore.pinSalt(ctx)
+            if (!verifier.isNullOrBlank() && !salt.isNullOrBlank()) {
+                data["pinVerifier"] = verifier
+                data["pinSalt"] = salt
+                // Migrado: el hash SHA-256 heredado ya no se vuelve a subir.
+                data["pinHash"] = FieldValue.delete()
+            }
+            childDoc(ctx).set(data, SetOptions.merge())
+                .addOnFailureListener { Log.w(TAG, "registerChild: ${it.message}") }
         }
     }
 
