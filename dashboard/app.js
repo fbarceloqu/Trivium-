@@ -114,6 +114,19 @@ async function sendParentControl(action) {
 }
 $("unlock-child-btn").addEventListener("click", () => sendParentControl("UNLOCK_TODAY"));
 $("lock-child-btn").addEventListener("click", () => sendParentControl("LOCK_TODAY"));
+$("archive-child-btn").addEventListener("click", async () => {
+  if (!selectedChild) return;
+  const name = selectedChild.data.name ?? "este perfil";
+  if (!confirm(`¿Eliminar «${name}» del panel? Se ocultará y su correo dejará de poder iniciar sesión. El historial se conserva como respaldo.`)) return;
+  try {
+    await setDoc(doc(db, "children", selectedChild.id), {
+      archived: true, active: false, archivedAt: serverTimestamp(), updatedAt: serverTimestamp()
+    }, { merge: true });
+    hide("detail-view"); showChildren();
+  } catch (err) {
+    console.error(err); $("parent-control-msg").textContent = "No se pudo eliminar el perfil.";
+  }
+});
 $("edit-child-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!selectedChild) return;
@@ -180,10 +193,11 @@ async function showChildren() {
   grid.innerHTML = "<p class='muted'>Cargando…</p>";
 
   const snap = await getDocs(collection(db, "children"));
+  const children = snap.docs.filter((child) => child.data().archived !== true);
   grid.innerHTML = "";
-  $("children-empty").style.display = snap.empty ? "block" : "none";
+  $("children-empty").style.display = children.length === 0 ? "block" : "none";
 
-  for (const child of snap.docs) {
+  for (const child of children) {
     const c = child.data();
     const day = await getDoc(doc(db, "children", child.id, "days", todayStr()));
     const d = day.exists() ? day.data() : null;

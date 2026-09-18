@@ -52,7 +52,12 @@ object StudentGoogleAuth {
                             .addOnSuccessListener { profiles ->
                                 when (profiles.size()) {
                                     1 -> {
-                                        ProfileStore.setCloudChildId(activity, profiles.documents.first().id)
+                                        val profile = profiles.documents.first()
+                                        if (profile.getBoolean("active") == false || profile.getBoolean("archived") == true) {
+                                            onResult("Este perfil fue eliminado o está desactivado desde el Panel de Padres.")
+                                            return@addOnSuccessListener
+                                        }
+                                        ProfileStore.setCloudChildId(activity, profile.id)
                                         ProgressSync.registerChild(activity)
                                         onResult(null)
                                     }
