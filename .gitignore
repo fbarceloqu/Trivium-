@@ -12,3 +12,6 @@ dashboard/firebase-config.js
 
 # Cache local de la CLI de Firebase (no aporta nada al repo)
 .firebase/
+
+# Salida compilada de Firebase Functions
+functions/lib/
