@@ -1,15 +1,10 @@
-// NO DESPLEGADO TODAVIA
-// ======================
-// Cloud Storage exige plan Blaze (tarjeta a la vista) incluso sin gastar nada,
-// asi que este archivo esta escrito pero NO referenciado desde firebase.json.
+// Se despliega desde firebase.json:  firebase deploy --only storage
 //
-// No hace falta: en las guias el archivo adjunto es OPCIONAL; lo que alimenta
-// el motor son los temas. Sin Storage el panel funciona completo.
-//
-// Para activarlo el dia que se pase a Blaze:
-//   1. Consola Firebase -> Storage -> Comenzar
-//   2. Anadir a firebase.json:  "storage": { "rules": "storage.rules" }
-//   3. firebase deploy --only storage
+// Las lecturas de la tablet y del alumno usan firestore.get(), y eso exige que
+// el agente de servicio de Storage tenga el rol
+// roles/firebaserules.firestoreServiceAgent. La CLI solo lo concede en un
+// deploy interactivo. Sin ese rol esas dos ramas fallan cerradas (niegan); el
+// padre no depende de ellas.
 
 rules_version = '2';
 

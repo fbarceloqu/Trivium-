@@ -31,5 +31,8 @@
   },
   "firestore": {
     "rules": "android/firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
   }
 }
