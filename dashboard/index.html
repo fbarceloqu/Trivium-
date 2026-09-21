@@ -117,6 +117,7 @@
     .guide-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
     .guide h4 { font-size: 15px; margin-bottom: 3px; }
     .guide .meta { font-size: 12px; color: var(--muted); }
+    #guide-status.warn { color: var(--amber); }
     .guide-actions { display: flex; gap: 6px; flex-shrink: 0; }
     .guide-actions button { padding: 5px 10px; font-size: 11px; }
     .bars { margin-top: 12px; display: grid; gap: 7px; }
@@ -322,6 +323,7 @@
           <div class="error" id="guide-error"></div>
         </form>
 
+        <p id="guide-status" class="muted" style="font-size:13px; margin-top:12px;"></p>
         <div id="guides-list" style="margin-top:16px;"></div>
       </div>
     </div>

@@ -19,6 +19,11 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const MODE_LABEL = { EXAM_PREP: "📝 Examen", LEARNING: "🧠 Aprendizaje" };
+const UPLOAD_ERROR = {
+  "storage/retry-limit-exceeded":
+    "no hubo conexión con Firebase Storage (¿está activado en el proyecto?)",
+  "storage/unauthorized": "Storage lo rechazó (revisa storage.rules; el límite es 15 MB)",
+};
 const escapeHtml = (value) => String(value ?? "")
   .replace(/&/g, "&amp;")
   .replace(/</g, "&lt;")
@@ -55,6 +60,11 @@ const short = (skillId) => skillId.replace(/^sec1\./, "");
 export function initGuides(app, firestore) {
   db = firestore;
   storage = getStorage(app);
+  // El SDK reintenta los errores de red durante 10 minutos, y un bucket que
+  // no existe (Storage sin activar) llega como error de red: el navegador
+  // bloquea la subida por CORS. Así el fallo se conoce en segundos. Solo
+  // limita los reintentos; una subida lenta que ya está en curso no se corta.
+  storage.maxUploadRetryTime = 15000;
 
   $("toggle-upload").addEventListener("click", () => {
     $("guide-form").classList.toggle("hidden");
@@ -63,17 +73,11 @@ export function initGuides(app, firestore) {
 
   $("g-cancel").addEventListener("click", () => {
     $("guide-form").classList.add("hidden");
-    $("guide-form").reset();
+    resetForm();
   });
 
-  // La fecha solo tiene sentido en modo examen.
   document.querySelectorAll('input[name="g-mode"]').forEach((r) =>
-    r.addEventListener("change", () => {
-      const esExamen =
-        document.querySelector('input[name="g-mode"]:checked').value === "EXAM_PREP";
-      $("g-date-wrap").style.opacity = esExamen ? "1" : ".4";
-      $("g-date").disabled = !esExamen;
-    })
+    r.addEventListener("change", syncDateField)
   );
 
   $("guide-form").addEventListener("submit", onSubmit);
@@ -83,7 +87,23 @@ export function initGuides(app, firestore) {
 export function openGuidesFor(childId, childName) {
   child = { id: childId, name: childName };
   $("guide-form").classList.add("hidden");
+  $("guide-status").textContent = "";
   refresh();
+}
+
+// La fecha solo tiene sentido en modo examen.
+function syncDateField() {
+  const esExamen =
+    document.querySelector('input[name="g-mode"]:checked').value === "EXAM_PREP";
+  $("g-date-wrap").style.opacity = esExamen ? "1" : ".4";
+  $("g-date").disabled = !esExamen;
+}
+
+// reset() vuelve a marcar "Preparar examen" sin disparar "change": sin esto
+// la fecha se quedaba deshabilitada después de una guía de aprendizaje.
+function resetForm() {
+  $("guide-form").reset();
+  syncDateField();
 }
 
 async function onSubmit(e) {
@@ -118,25 +138,12 @@ async function onSubmit(e) {
   btn.textContent = "Guardando…";
   try {
     const id = `g_${Date.now()}`;
-    let fileUrl = null;
-    let fileName = null;
-
-    // El archivo es OPCIONAL: los temas son lo que de verdad usa el motor.
-    // Si la subida falla, la guía se guarda igual en vez de perderse.
+    const guideRef = doc(db, "children", child.id, "guides", id);
     const file = $("g-file").files[0];
-    if (file) {
-      try {
-        const path = `guides/${child.id}/${id}_${file.name}`;
-        const snap = await uploadBytes(storageRef(storage, path), file);
-        fileUrl = await getDownloadURL(snap.ref);
-        fileName = file.name;
-      } catch (upErr) {
-        console.warn("No se pudo subir el archivo:", upErr);
-        err.textContent = "La guía se guardó, pero el archivo no subió (¿Storage habilitado?).";
-      }
-    }
 
-    await setDoc(doc(db, "children", child.id, "guides", id), {
+    // La guía se guarda sin esperar al archivo: los temas son lo que de
+    // verdad usa el motor. El archivo es OPCIONAL y se adjunta después.
+    await setDoc(guideRef, {
       title: $("g-title").value.trim(),
       subject: $("g-subject").value,
       mode,
@@ -144,21 +151,50 @@ async function onSubmit(e) {
       topics,
       spellingWords,
       correctTarget,
-      fileUrl,
-      fileName,
+      fileUrl: null,
+      fileName: null,
       paused: false,
       createdAt: serverTimestamp(),
     });
 
-    $("guide-form").reset();
+    resetForm();
     $("guide-form").classList.add("hidden");
     refresh();
+    if (file) attachFile(guideRef, child.id, id, file);
   } catch (e2) {
     console.error(e2);
     err.textContent = "No se pudo guardar la guía. Revisa las reglas de Firestore.";
   } finally {
     btn.disabled = false;
     btn.textContent = "Guardar guía";
+  }
+}
+
+/**
+ * Sube el archivo de una guía que ya está guardada y le anota el enlace.
+ * Corre en segundo plano porque el formulario ya se cerró: el avance y el
+ * resultado se ven en #guide-status.
+ */
+async function attachFile(guideRef, childId, guideId, file) {
+  const status = (text, warn = false) => {
+    if (child?.id !== childId) return; // el padre ya está viendo a otro hijo
+    $("guide-status").textContent = text;
+    $("guide-status").classList.toggle("warn", warn);
+  };
+  status(`Subiendo «${file.name}»…`);
+  try {
+    const path = `guides/${childId}/${guideId}_${file.name}`;
+    const snap = await uploadBytes(storageRef(storage, path), file);
+    await setDoc(guideRef, {
+      fileUrl: await getDownloadURL(snap.ref),
+      fileName: file.name,
+    }, { merge: true });
+    status("");
+    if (child?.id === childId) refresh();
+  } catch (upErr) {
+    console.warn("No se pudo subir el archivo:", upErr);
+    const motivo = UPLOAD_ERROR[upErr?.code] ?? `error ${upErr?.code ?? "desconocido"}`;
+    status(`La guía se guardó, pero «${file.name}» no se adjuntó: ${motivo}.`, true);
   }
 }
 
