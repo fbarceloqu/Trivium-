@@ -40,6 +40,7 @@ const safeFileUrl = (value) => {
 let db = null;
 let storage = null;
 let child = null; // { id, name }
+let editing = null; // id de la guía abierta en el formulario; null = guía nueva
 
 const fmtDay = (s) => {
   if (!s) return "";
@@ -67,7 +68,13 @@ export function initGuides(app, firestore) {
   storage.maxUploadRetryTime = 15000;
 
   $("toggle-upload").addEventListener("click", () => {
-    $("guide-form").classList.toggle("hidden");
+    // Si el formulario tenía una guía en edición, empieza una nueva en limpio.
+    if (editing) {
+      resetForm();
+      $("guide-form").classList.remove("hidden");
+    } else {
+      $("guide-form").classList.toggle("hidden");
+    }
     $("guide-error").textContent = "";
   });
 
@@ -87,6 +94,7 @@ export function initGuides(app, firestore) {
 export function openGuidesFor(childId, childName) {
   child = { id: childId, name: childName };
   $("guide-form").classList.add("hidden");
+  resetForm(); // una guía en edición pertenece al hijo anterior
   $("guide-status").textContent = "";
   refresh();
 }
@@ -104,6 +112,32 @@ function syncDateField() {
 function resetForm() {
   $("guide-form").reset();
   syncDateField();
+  editing = null;
+  $("g-submit").textContent = "Guardar guía";
+  $("g-file-current").textContent = "";
+}
+
+/** Abre el formulario con los datos de una guía existente. */
+function openEdit(id, g) {
+  resetForm();
+  editing = id;
+  $("g-title").value = g.title ?? "";
+  $("g-subject").value = g.subject ?? "MATH";
+  const mode = g.mode === "LEARNING" ? "LEARNING" : "EXAM_PREP";
+  document.querySelector(`input[name="g-mode"][value="${mode}"]`).checked = true;
+  $("g-date").value = g.examDate ?? "";
+  $("g-topics").value = (g.topics ?? []).join("\n");
+  $("g-spelling-words").value = (g.spellingWords ?? []).join("\n");
+  $("g-correct-target").value = g.correctTarget ?? 30;
+  // Un <input type="file"> no se puede rellenar: se avisa cuál está guardado.
+  $("g-file-current").textContent = g.fileName
+    ? `Archivo actual: «${g.fileName}». Elige otro solo si quieres reemplazarlo.`
+    : "";
+  syncDateField();
+  $("g-submit").textContent = "Guardar cambios";
+  $("guide-error").textContent = "";
+  $("guide-form").classList.remove("hidden");
+  $("guide-form").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 async function onSubmit(e) {
@@ -116,12 +150,14 @@ async function onSubmit(e) {
 
   const mode = document.querySelector('input[name="g-mode"]:checked').value;
   const topics = $("g-topics").value.split("\n").map((t) => t.trim()).filter(Boolean);
-  const spellingWords = $("g-spelling-words").value
-    .split(/[\n,]+/)
-    .map((w) => w.trim().toLowerCase())
-    .filter((w) => /^[a-z]{2,15}$/.test(w))
-    .filter((w, i, all) => all.indexOf(w) === i)
-    .slice(0, 20);
+  // Acepta la lista como la manda la maestra ("1. happy", "2) sad", "- game"),
+  // pero no descarta nada en silencio: lo que no sea una palabra se reporta.
+  const wordEntries = $("g-spelling-words").value
+    .split(/[\n,;]+/)
+    .map((w) => w.trim().toLowerCase().replace(/^(?:\d+\s*[.):-]?|[-•*·])\s*/, ""))
+    .filter(Boolean);
+  const invalidWords = wordEntries.filter((w) => !/^[a-z]{2,15}$/.test(w));
+  const spellingWords = wordEntries.filter((w, i, all) => all.indexOf(w) === i);
   const examDate = $("g-date").value;
   const correctTarget = Math.max(10, Math.min(100, Number($("g-correct-target").value) || 30));
 
@@ -133,17 +169,23 @@ async function onSubmit(e) {
     err.textContent = "Para preparar un examen hace falta la fecha.";
     return;
   }
+  if (invalidWords.length > 0) {
+    err.textContent = `Estas palabras no se pueden practicar: ${invalidWords.join(", ")}. ` +
+      "Van sueltas, de 2 a 15 letras, sin espacios ni acentos.";
+    return;
+  }
+  if (spellingWords.length > 20) {
+    err.textContent = "Son más de 20 palabras; la tablet practica 20 como máximo.";
+    return;
+  }
 
   btn.disabled = true;
   btn.textContent = "Guardando…";
   try {
-    const id = `g_${Date.now()}`;
+    const id = editing ?? `g_${Date.now()}`;
     const guideRef = doc(db, "children", child.id, "guides", id);
     const file = $("g-file").files[0];
-
-    // La guía se guarda sin esperar al archivo: los temas son lo que de
-    // verdad usa el motor. El archivo es OPCIONAL y se adjunta después.
-    await setDoc(guideRef, {
+    const fields = {
       title: $("g-title").value.trim(),
       subject: $("g-subject").value,
       mode,
@@ -151,11 +193,22 @@ async function onSubmit(e) {
       topics,
       spellingWords,
       correctTarget,
-      fileUrl: null,
-      fileName: null,
-      paused: false,
-      createdAt: serverTimestamp(),
-    });
+    };
+
+    // La guía se guarda sin esperar al archivo: los temas son lo que de
+    // verdad usa el motor. El archivo es OPCIONAL y se adjunta después.
+    // Al editar se fusiona: el archivo, la pausa y la fecha de alta se quedan.
+    if (editing) {
+      await setDoc(guideRef, fields, { merge: true });
+    } else {
+      await setDoc(guideRef, {
+        ...fields,
+        fileUrl: null,
+        fileName: null,
+        paused: false,
+        createdAt: serverTimestamp(),
+      });
+    }
 
     resetForm();
     $("guide-form").classList.add("hidden");
@@ -166,7 +219,7 @@ async function onSubmit(e) {
     err.textContent = "No se pudo guardar la guía. Revisa las reglas de Firestore.";
   } finally {
     btn.disabled = false;
-    btn.textContent = "Guardar guía";
+    btn.textContent = editing ? "Guardar cambios" : "Guardar guía";
   }
 }
 
@@ -293,6 +346,7 @@ function render(id, g, dominio) {
         <div class="meta">${escapeHtml(cuando)} · ${escapeHtml(g.topics?.length ?? 0)} temas${enlace}</div>
       </div>
       <div class="guide-actions">
+        <button class="ghost" data-act="edit">Editar</button>
         <button class="ghost" data-act="pause">${g.paused ? "Reanudar" : "Pausar"}</button>
         <button class="ghost" data-act="del">Eliminar</button>
       </div>
@@ -308,6 +362,8 @@ function render(id, g, dominio) {
     ${takeaway}
   `;
 
+  el.querySelector('[data-act="edit"]').addEventListener("click", () => openEdit(id, g));
+
   el.querySelector('[data-act="pause"]').addEventListener("click", async () => {
     await setDoc(
       doc(db, "children", child.id, "guides", id),
@@ -320,6 +376,11 @@ function render(id, g, dominio) {
   el.querySelector('[data-act="del"]').addEventListener("click", async () => {
     if (!confirm(`¿Eliminar «${g.title}»? El historial de práctica NO se borra.`)) return;
     await deleteDoc(doc(db, "children", child.id, "guides", id));
+    // Guardar después la edición abierta volvería a crear la guía a medias.
+    if (editing === id) {
+      resetForm();
+      $("guide-form").classList.add("hidden");
+    }
     refresh();
   });
 
