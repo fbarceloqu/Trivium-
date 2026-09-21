@@ -619,7 +619,8 @@ private fun MultipleChoiceStage(
                         visualWord = quiz.visualWord,
                         speech = quiz.speech,
                         speechEnglish = quiz.speechEnglish,
-                        accent = accent
+                        accent = accent,
+                        spellingResult = result
                     )
                 }
                 // Respuestas + retroalimentación se desplazan si hace falta,
@@ -656,7 +657,8 @@ private fun MultipleChoiceStage(
                 visualWord = quiz.visualWord,
                 speech = quiz.speech,
                 speechEnglish = quiz.speechEnglish,
-                accent = accent
+                accent = accent,
+                spellingResult = result
             )
             Spacer(Modifier.size(m.sectionGap.dp))
             AnswerArea(quiz, selected, result, onAnswer)
@@ -824,7 +826,8 @@ private fun AnswerArea(
     val ctx = LocalContext.current
 
     Column(Modifier.fillMaxWidth()) {
-        OptionsGrid(quiz.options, selected, result, quiz.answer, onAnswer)
+        OptionsGrid(quiz.options, selected, result, quiz.answer, onAnswer,
+            playful = quiz.visualWord != null)
 
         result?.let { ok ->
             Spacer(Modifier.size(m.itemGap.dp))
@@ -970,8 +973,13 @@ private fun QuestionCard(
     /** Texto que lee la bocina. Si es null, la tarjeta no muestra bocina. */
     speech: String? = null,
     speechEnglish: Boolean = false,
-    accent: Color = Color.Unspecified
+    accent: Color = Color.Unspecified,
+    spellingResult: Boolean? = null
 ) {
+    if (visualWord != null) {
+        SpellingCard(text, visualWord, imageResForWord(visualWord), spellingResult, modifier)
+        return
+    }
     val m = LocalMetrics.current
     val density = LocalDensity.current
     val ctx = LocalContext.current
@@ -1008,17 +1016,6 @@ private fun QuestionCard(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    visualWord?.let { word ->
-                        imageResForWord(word)?.let { res ->
-                            Image(
-                                painter = painterResource(res),
-                                contentDescription = word,
-                                modifier = Modifier
-                                    .size(m.heroImageMax.dp)
-                                    .padding(bottom = m.itemGap.dp)
-                            )
-                        }
-                    }
                     lines.forEach { line ->
                         if (!isEmojiLine(line)) {
                             Text(
@@ -1132,7 +1129,8 @@ private fun OptionsGrid(
     correctFlag: Boolean?,
     /** Cuál es la correcta, para poder resaltarla cuando el alumno falla. */
     answer: String,
-    onClick: (String) -> Unit
+    onClick: (String) -> Unit,
+    playful: Boolean = false
 ) {
     val m = LocalMetrics.current
 
@@ -1162,7 +1160,10 @@ private fun OptionsGrid(
                                 else -> AnswerState.IDLE
                             },
                             onClick = { onClick(opt) },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            playful = playful,
+                            enabled = !playful || correctFlag == null,
+                            choiceIndex = options.indexOf(opt)
                         )
                     }
                     // Rellena el hueco si la última fila va incompleta.
@@ -1198,7 +1199,10 @@ private fun AnswerButton(
     text: String,
     state: AnswerState,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    playful: Boolean = false,
+    enabled: Boolean = true,
+    choiceIndex: Int = 0
 ) {
     val m = LocalMetrics.current
     val esquema = MaterialTheme.colorScheme
@@ -1209,18 +1213,39 @@ private fun AnswerButton(
         // La correcta no elegida se marca en verde translúcido: se distingue de
         // la que sí se pulsó, sin gritar tanto como un acierto propio.
         AnswerState.REVEALED -> esquema.secondary.copy(alpha = 0.35f)
-        AnswerState.IDLE -> esquema.surface
+        AnswerState.IDLE -> if (playful) spellingColors[choiceIndex % spellingColors.size].copy(alpha = 0.22f) else esquema.surface
     }
 
     Button(
         onClick = onClick,
+        enabled = enabled,
         shape = RoundedCornerShape(m.corner.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = container),
+        border = if (playful) androidx.compose.foundation.BorderStroke(
+            2.dp, when (state) {
+                AnswerState.CHOSEN_RIGHT, AnswerState.REVEALED -> esquema.secondary
+                AnswerState.CHOSEN_WRONG -> esquema.error
+                AnswerState.IDLE -> spellingColors[choiceIndex % spellingColors.size].copy(alpha = 0.65f)
+            }
+        ) else null,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = container,
+            contentColor = if (playful) esquema.onSurface else esquema.onPrimary,
+            disabledContainerColor = container,
+            disabledContentColor = esquema.onSurface
+        ),
         contentPadding = PaddingValues(vertical = m.optionVPad.dp, horizontal = m.itemGap.dp),
         // answerMinHeight crece con la altura disponible: en tablet horizontal
         // los botones se estiran hasta ocupar el hueco que antes quedaba vacío.
         modifier = modifier.heightIn(min = m.answerMinHeight.dp)
     ) {
+        if (playful) {
+            Text(when (state) {
+                AnswerState.CHOSEN_RIGHT, AnswerState.REVEALED -> "✓"
+                AnswerState.CHOSEN_WRONG -> "↺"
+                AnswerState.IDLE -> "${choiceIndex + 1}"
+            }, fontSize = m.statusLine.sp,
+                modifier = Modifier.padding(end = m.itemGap.dp))
+        }
         OptionContent(text)
     }
 }
