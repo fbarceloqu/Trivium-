@@ -96,6 +96,29 @@ $("google-login-btn").addEventListener("click", async () => {
 
 $("logout-btn").addEventListener("click", () => signOut(auth));
 $("back-btn").addEventListener("click", () => { hide("detail-view"); show("children-view"); });
+
+// Pestañas del detalle. La elegida se conserva al cambiar de hijo: quien
+// revisa las guías de uno suele querer ver enseguida las del siguiente.
+const detailTabs = [...document.querySelectorAll('#detail-tabs [role="tab"]')];
+const selectTab = (tab) => {
+  for (const t of detailTabs) {
+    const on = t === tab;
+    t.setAttribute("aria-selected", String(on));
+    t.tabIndex = on ? 0 : -1;
+    $(t.getAttribute("aria-controls")).hidden = !on;
+  }
+};
+detailTabs.forEach((tab, i) => {
+  tab.addEventListener("click", () => selectTab(tab));
+  // Flechas izquierda/derecha para moverse entre pestañas (patrón WAI-ARIA).
+  tab.addEventListener("keydown", (e) => {
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+    if (!step) return;
+    const next = detailTabs[(i + step + detailTabs.length) % detailTabs.length];
+    selectTab(next);
+    next.focus();
+  });
+});
 $("edit-child-btn").addEventListener("click", () => {
   if (!selectedChild) return;
   $("e-name").value = selectedChild.data.name ?? "";
@@ -257,6 +280,11 @@ async function showDetail(childId, c) {
     ? (control.action === "UNLOCK_TODAY" ? "Estado enviado: desbloqueado por padre hoy." : "Estado enviado: tareas bloqueadas por padre hoy.")
     : "Control remoto: sin orden activa para hoy.";
 
+  // Antes de los días: si el hijo aún no tiene ninguno, la función sale
+  // temprano y estas pestañas se quedaban con los datos del hijo anterior.
+  renderLearningInsight(childId);
+  renderSessions(childId);
+
   const body = $("days-body");
   body.innerHTML = "<tr><td colspan='6' class='muted'>Cargando…</td></tr>";
 
@@ -291,9 +319,6 @@ async function showDetail(childId, c) {
     `;
     body.appendChild(tr);
   }
-
-  renderLearningInsight(childId);
-  renderSessions(childId);
 }
 
 function skillLabel(id) {

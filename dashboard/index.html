@@ -82,6 +82,20 @@
     th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
     td.ok { color: var(--green); } td.bad { color: var(--red); } td.warn { color: var(--amber); }
     .muted { color: var(--muted); }
+    /* Pestañas del detalle de un hijo. La línea base va como sombra interior:
+       con overflow-x un borde con margen negativo quedaría recortado. */
+    .tabs {
+      display: flex; gap: 4px; margin: 16px 0 12px; overflow-x: auto;
+      box-shadow: inset 0 -1px 0 var(--border);
+    }
+    .tabs [role="tab"] {
+      width: auto; background: transparent; color: var(--muted);
+      border-radius: 10px 10px 0 0; border-bottom: 2px solid transparent;
+      padding: 10px 14px; font-size: 13px; white-space: nowrap;
+    }
+    .tabs [role="tab"][aria-selected="true"] { color: var(--text); border-bottom-color: var(--indigo); }
+    .tabs [role="tab"]:focus-visible { outline: 2px solid var(--indigo); outline-offset: -2px; }
+    .tab-panel[hidden] { display: none; }
     #config-missing code { background: var(--bg); padding: 2px 6px; border-radius: 6px; font-size: 12px; }
     #config-missing li { margin: 8px 0 8px 18px; font-size: 14px; }
     /* Guías de estudio */
@@ -226,7 +240,19 @@
           <div class="form-actions"><button type="submit">Guardar cambios</button><button type="button" id="e-cancel" class="ghost">Cancelar</button></div>
           <div id="edit-child-error" class="error"></div>
         </form>
-        <table>
+      </div>
+
+      <!-- Secciones del hijo, en pestañas -->
+      <div id="detail-tabs" class="tabs" role="tablist" aria-label="Secciones">
+        <button role="tab" id="tab-days" aria-controls="panel-days" aria-selected="true">📅 Días</button>
+        <button role="tab" id="tab-guides" aria-controls="panel-guides" aria-selected="false" tabindex="-1">📚 Guías</button>
+        <button role="tab" id="tab-memory" aria-controls="panel-memory" aria-selected="false" tabindex="-1">🧠 Memoria</button>
+        <button role="tab" id="tab-sessions" aria-controls="panel-sessions" aria-selected="false" tabindex="-1">📝 Sesiones</button>
+      </div>
+
+      <div class="card tab-panel" role="tabpanel" id="panel-days" aria-labelledby="tab-days">
+        <h2>📅 Últimos 14 días</h2>
+        <table style="margin-top:8px;">
           <thead>
             <tr>
               <th>Fecha</th><th>Mate</th><th>Inglés</th><th>Lectura</th>
@@ -237,21 +263,8 @@
         </table>
       </div>
 
-      <div class="card" style="margin-top:16px;">
-        <h2>🧠 Memoria de aprendizaje</h2>
-        <div id="learning-insight" class="muted" style="margin-top:8px;">Cargando análisis…</div>
-      </div>
-
-      <div class="card" style="margin-top:16px;">
-        <h2>📝 Últimas sesiones</h2>
-        <p class="muted" style="font-size:13px; margin-top:6px;">
-          Preguntas realizadas, respuesta elegida, solución y explicación.
-        </p>
-        <div id="sessions-list" style="margin-top:12px;"></div>
-      </div>
-
       <!-- Guías y material de estudio -->
-      <div class="card" style="margin-top:16px;">
+      <div class="card tab-panel" role="tabpanel" id="panel-guides" aria-labelledby="tab-guides" hidden>
         <div class="section-head">
           <h2>📚 Guías y material de estudio</h2>
           <button id="toggle-upload" class="ghost">+ Subir material</button>
@@ -327,6 +340,19 @@
 
         <p id="guide-status" class="muted" style="font-size:13px; margin-top:12px;"></p>
         <div id="guides-list" style="margin-top:16px;"></div>
+      </div>
+
+      <div class="card tab-panel" role="tabpanel" id="panel-memory" aria-labelledby="tab-memory" hidden>
+        <h2>🧠 Memoria de aprendizaje</h2>
+        <div id="learning-insight" class="muted" style="margin-top:8px;">Cargando análisis…</div>
+      </div>
+
+      <div class="card tab-panel" role="tabpanel" id="panel-sessions" aria-labelledby="tab-sessions" hidden>
+        <h2>📝 Últimas sesiones</h2>
+        <p class="muted" style="font-size:13px; margin-top:6px;">
+          Preguntas realizadas, respuesta elegida, solución y explicación.
+        </p>
+        <div id="sessions-list" style="margin-top:12px;"></div>
       </div>
     </div>
   </div>
