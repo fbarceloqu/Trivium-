@@ -39,6 +39,11 @@ object TtsManager {
             return
         }
         if (ready) doSpeak(clean, english)
+        else {
+            // If another option is tapped during initialization, read the latest selection.
+            pendingText = clean
+            pendingEnglish = english
+        }
     }
 
     private fun doSpeak(text: String, english: Boolean) {

@@ -34,7 +34,21 @@ android {
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
 
+    val tabletSigningFile = rootProject.file("signing.properties")
+    if (tabletSigningFile.exists()) {
+        val tabletSigning = Properties().apply { tabletSigningFile.inputStream().use { load(it) } }
+        signingConfigs.create("tabletLocal") {
+            storeFile = rootProject.file(tabletSigning.getProperty("storeFile"))
+            storePassword = tabletSigning.getProperty("storePassword")
+            keyAlias = tabletSigning.getProperty("keyAlias")
+            keyPassword = tabletSigning.getProperty("keyPassword")
+        }
+    }
+
     buildTypes {
+        debug {
+            if (tabletSigningFile.exists()) signingConfig = signingConfigs.getByName("tabletLocal")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(

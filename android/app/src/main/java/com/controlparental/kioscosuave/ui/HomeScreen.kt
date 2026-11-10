@@ -112,7 +112,11 @@ fun HomeScreen(
         }
     }
     val timeFmt = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
-    val dateFmt = remember { SimpleDateFormat("EEEE d 'de' MMMM", Locale("es")) }
+    val english = LocalStarterEnglish.current
+    val dateFmt = remember(english) {
+        if (english) SimpleDateFormat("EEEE, MMMM d", Locale.US)
+        else SimpleDateFormat("EEEE d 'de' MMMM", Locale("es"))
+    }
 
     fun launch(app: LaunchableApp) {
         ctx.packageManager.getLaunchIntentForPackage(app.packageName)
@@ -137,7 +141,7 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "✅ $childName · tareas listas",
+                    childText("✅ $childName · tareas listas", "✅ $childName · all done"),
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.65f),
                     modifier = Modifier.weight(1f)
@@ -145,7 +149,7 @@ fun HomeScreen(
                 IconButton(onClick = onLockAgain) {
                     Icon(
                         Icons.Filled.Lock,
-                        contentDescription = "Bloquear tablet",
+                        contentDescription = childText("Bloquear tablet", "Lock tablet"),
                         tint = Color.White.copy(alpha = 0.45f),
                         modifier = Modifier.size(18.dp)
                     )
@@ -192,7 +196,7 @@ fun HomeScreen(
                     decorationBox = { inner ->
                         if (query.isEmpty()) {
                             Text(
-                                "Buscar aplicaciones",
+                                childText("Buscar aplicaciones", "Search apps"),
                                 color = Color.White.copy(alpha = 0.45f),
                                 fontSize = 14.sp
                             )
@@ -249,7 +253,7 @@ fun HomeScreen(
         ) {
             Icon(
                 Icons.Filled.Lock,
-                contentDescription = "Acceso de padres",
+                contentDescription = childText("Acceso de padres", "Parent access"),
                 tint = Color.White.copy(alpha = 0.4f),
                 modifier = Modifier.size(18.dp)
             )

@@ -94,3 +94,14 @@ app/src/main/java/com/controlparental/kioscosuave/
 ├─ KioskDeviceAdminReceiver.kt  # Device Admin opcional (Lock Now)
 └─ ui/                          # Pantallas Jetpack Compose
 ```
+
+## Firma local de la tablet
+
+Run/debug usa `signing.properties` y `signing/tablet-local.p12` cuando existen.
+Ambos archivos son privados y están excluidos de Git. Guarda una copia segura de
+los dos juntos: se necesitan para actualizar esta instalación sin borrar sus datos.
+No regeneres la clave al cambiar de computadora; copia estos archivos de forma segura.
+
+SHA-1 registrada en Trivium: `54:64:D1:E1:7D:AC:E2:B8:DA:41:A1:74:3E:13:4A:46:AA:61:16:FB`.
+El cliente OAuth Android correspondiente termina en `qor7g9log6jdiprm59pa0ai46qu2eurj.apps.googleusercontent.com`.
+El inicio de sesión sigue usando el cliente Web como server client ID.

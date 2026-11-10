@@ -103,14 +103,19 @@ class LauncherActivity : ComponentActivity() {
                     },
                     onParentAccess = { openParentSetup() }
                 )
-                else -> HomeScreen(
-                    childName = ProfileStore.getProfile(this).name,
-                    onLockAgain = {
-                        SessionStateMachine.setLocked(this)
-                        locked = true
-                    },
-                    onParentAccess = { openParentSetup() }
-                )
+                else -> androidx.compose.runtime.CompositionLocalProvider(
+                    com.controlparental.kioscosuave.ui.LocalStarterEnglish provides
+                        (ProfileStore.getProfile(this).grade == GradeLevel.PREESCOLAR)
+                ) {
+                    HomeScreen(
+                        childName = ProfileStore.getProfile(this).name,
+                        onLockAgain = {
+                            SessionStateMachine.setLocked(this)
+                            locked = true
+                        },
+                        onParentAccess = { openParentSetup() }
+                    )
+                }
             }
         }
     }

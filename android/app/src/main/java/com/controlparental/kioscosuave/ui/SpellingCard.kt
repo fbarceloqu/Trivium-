@@ -75,8 +75,8 @@ internal fun SpellingCard(
             ) {
                 Text(
                     when (result) {
-                        true -> "★  ¡Palabra conquistada!  ★"
-                        false -> "¡Vamos a descubrirla!"
+                        true -> childText("★  ¡Palabra conquistada!  ★", "★  Word mastered!  ★")
+                        false -> childText("¡Vamos a descubrirla!", "Let's learn this word!")
                         null -> "✦  SPELLING LAB  ✦"
                     },
                     color = if (result == true) spellingColors[1] else spellingColors[2],
@@ -99,7 +99,7 @@ internal fun SpellingCard(
                         tint = spellingColors[1], modifier = Modifier.size((pictureSize * 0.55f).dp))
                 }
                 Text(
-                    if (blank) "¿Qué letra falta?" else question,
+                    if (blank) childText("¿Qué letra falta?", "Which letter is missing?") else question,
                     fontSize = m.instruction.sp,
                     lineHeight = m.lineHeight(m.instruction).sp,
                     fontWeight = FontWeight.Bold,
@@ -136,7 +136,7 @@ internal fun SpellingCard(
                 ) {
                     Icon(Icons.Filled.VolumeUp, contentDescription = null)
                     Spacer(Modifier.size(m.itemGap.dp))
-                    Text("Escuchar palabra", fontSize = m.buttonLabel.sp)
+                    Text(childText("Escuchar palabra", "Listen to the word"), fontSize = m.buttonLabel.sp)
                 }
             }
         }

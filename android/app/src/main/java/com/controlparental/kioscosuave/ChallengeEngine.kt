@@ -408,6 +408,42 @@ object ChallengeEngine {
     // el niño practica en inglés (ver starterVocab más arriba).
     private val countEmojis = starterVocab.mapNotNull { it.emoji.takeIf(String::isNotBlank) }.distinct()
 
+    // Use spoken object names rather than relying on TTS to pronounce emoji.
+    private fun comparisonName(emoji: String): String {
+        val word = starterVocab.first { it.emoji == emoji }.word
+        return when (word) {
+            "fish", "sheep", "deer", "shoes", "socks", "glasses", "gloves", "scissors", "blocks", "pants" -> word
+            "mouse" -> "mice"
+            "foot" -> "feet"
+            "tooth" -> "teeth"
+            "leaf" -> "leaves"
+            "wolf" -> "wolves"
+            "milk" -> "glasses of milk"
+            "water" -> "drops of water"
+            "rice" -> "bowls of rice"
+            "bread" -> "loaves of bread"
+            "broccoli" -> "pieces of broccoli"
+            "cheese" -> "pieces of cheese"
+            "red", "blue", "green", "yellow", "black", "white", "purple", "brown" -> "$word squares"
+            "orange color" -> "orange squares"
+            "pink" -> "pink hearts"
+            "sad", "angry", "surprised", "scared", "sleepy" -> "$word faces"
+            "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten" -> "number $word symbols"
+            "rain" -> "rain clouds"
+            "snow" -> "snowflakes"
+            "fire" -> "flames"
+            "sea" -> "waves"
+            "basketball" -> "basketballs"
+            "tennis" -> "tennis balls"
+            "potato", "tomato" -> word + "es"
+            else -> when {
+                word.endsWith("y") && word[word.length - 2] !in "aeiou" -> word.dropLast(1) + "ies"
+                word.endsWith("s") || word.endsWith("x") || word.endsWith("ch") || word.endsWith("sh") -> word + "es"
+                else -> word + "s"
+            }
+        }
+    }
+
     // El mismo objeto puede aparecer varias veces DENTRO de una pregunta para
     // que se pueda contar. Entre preguntas, en cambio, se rota para que una
     // sesión no parezca una fila interminable de la misma imagen.
@@ -420,12 +456,12 @@ object ChallengeEngine {
     }
 
     private val EX_COUNT = WorkedExample(
-        "Ejemplo: contar",
+        "Example: counting",
         listOf(
-            "¿Cuántas hay?  🍎 🍎 🍎",
-            "Cuenta una por una con el dedo:",
+            "How many are there?  🍎 🍎 🍎",
+            "Point to each one and count:",
             "1... 2... 3",
-            "¡Son 3!"
+            "There are 3!"
         )
     )
 
@@ -434,9 +470,9 @@ object ChallengeEngine {
         val e = nextCountEmoji()
         val row = List(n) { e }.joinToString(" ")
         return MathQuestion(
-            "¿Cuántos hay?\n\n$row",
+            "How many are there?\n\n$row",
             distinctOptions(n, listOf(n + 1, n - 1, n + 2)), n.toString(),
-            listOf("Cuenta uno por uno con el dedo:", row, "¡Son $n!"), EX_COUNT)
+            listOf("Point to each one and count:", row, "There are $n!"), EX_COUNT)
     }
 
     private fun addObjects(): MathQuestion {
@@ -445,19 +481,19 @@ object ChallengeEngine {
         val rowA = List(a) { e }.joinToString(" ")
         val rowB = List(b) { e }.joinToString(" ")
         return MathQuestion(
-            "$rowA  y  $rowB\n\n¿Cuántos hay en total?",
+            "$rowA + $rowB\n\nHow many are there altogether?",
             distinctOptions(ans, listOf(ans + 1, ans - 1, ans + 2)), ans.toString(),
-            listOf("Junta los dos grupos y cuenta todos:", "$rowA  $rowB", "¡Son $ans!"), EX_COUNT)
+            listOf("Put the two groups together and count:", "$rowA + $rowB", "There are $ans!"), EX_COUNT)
     }
 
     private val EX_RESTA = WorkedExample(
-        "Ejemplo: restar contando hacia atrás",
+        "Example: subtract by counting back",
         listOf(
-            "Resta:  4 − 1 = ?",
-            "Puedes contar hacia atrás para restar.",
-            "Empieza desde el 4 y cuenta 1 hacia atrás:",
+            "Subtract:  4 − 1 = ?",
+            "You can count back to subtract.",
+            "Start at 4 and count back 1:",
             "4... 3",
-            "¡La respuesta es 3!"
+            "The answer is 3!"
         )
     )
 
@@ -469,22 +505,22 @@ object ChallengeEngine {
         val row = List(a) { e }.joinToString(" ")
         val backwards = (a downTo ans).joinToString("... ")
         return MathQuestion(
-            "Hay $a. Se van $b.\n\n$row\n\n¿Cuántos quedan?",
+            "There are $a. Take away $b.\n$a − $b = ?\n\n$row\n\nHow many are left?",
             distinctOptions(ans, listOf(ans + 1, ans - 1, ans + 2)), ans.toString(),
             listOf(
-                "Cuenta hacia atrás desde $a, $b ${if (b == 1) "vez" else "veces"}:",
+                "Start at $a and count back $b ${if (b == 1) "step" else "steps"}:",
                 backwards,
-                "¡Quedan $ans!"
+                "There are $ans left!"
             ), EX_RESTA)
     }
 
     private val EX_QUE_SUMA = WorkedExample(
-        "Ejemplo: ¿qué suma muestra el dibujo?",
+        "Example: which addition matches the picture?",
         listOf(
-            "🔵 🔵    🟠",
-            "Cuenta los azules: 2. Cuenta los naranjas: 1.",
+            "🔵 🔵 + 🟠",
+            "Count the blue ones: 2. Count the orange ones: 1.",
             "2 + 1 = 3",
-            "La suma correcta es «2 + 1 = 3»."
+            "The correct addition is 2 + 1 = 3."
         )
     )
 
@@ -500,22 +536,22 @@ object ChallengeEngine {
         opts.add("${a + 1} + $b = ${a + b + 1}")
         opts.add("$a + $b = ${a + b + 1}")
         return MathQuestion(
-            "¿Qué suma muestra este dibujo?\n\n$rowA   $rowB",
+            "Which addition matches this picture?\n\n$rowA + $rowB",
             opts.toList().shuffled(), correct,
             listOf(
-                "Cuenta los azules: $a. Cuenta los naranjas: $b.",
+                "Count the blue ones: $a. Count the orange ones: $b.",
                 "$a + $b = ${a + b}"
             ), EX_QUE_SUMA)
     }
 
     private val EX_COMPARA = WorkedExample(
-        "Ejemplo: ¿hay más?",
+        "Example: are there more?",
         listOf(
-            "¿Hay más 🍎 que 🍌?",
+            "Are there more apples than bananas?",
             "🍎 🍎 🍎",
             "🍌 🍌",
-            "Cuenta cada fila: 3 manzanas y 2 plátanos.",
-            "3 es más que 2 → la respuesta es «sí»."
+            "Count each row: 3 apples and 2 bananas.",
+            "3 is more than 2. The answer is yes."
         )
     )
 
@@ -526,16 +562,16 @@ object ChallengeEngine {
         val n1 = Random.nextInt(1, 6); var n2 = Random.nextInt(1, 6)
         while (n2 == n1) n2 = Random.nextInt(1, 6)
         val askMore = Random.nextBoolean()
-        val word = if (askMore) "más" else "menos"
+        val word = if (askMore) "more" else "fewer"
         val answerYes = if (askMore) n1 > n2 else n1 < n2
         val row1 = List(n1) { e1 }.joinToString(" ")
         val row2 = List(n2) { e2 }.joinToString(" ")
         return MathQuestion(
-            "¿Hay $word $e1 que $e2?\n\n$row1\n$row2",
-            listOf("sí", "no"), if (answerYes) "sí" else "no",
+            "Are there $word ${comparisonName(e1)} than ${comparisonName(e2)}?\n\n$row1\n$row2",
+            listOf("yes", "no"), if (answerYes) "yes" else "no",
             listOf(
-                "Cuenta cada fila: $n1 $e1 y $n2 $e2.",
-                "$n1 ${if (n1 > n2) "es más que" else "es menos que"} $n2 → «${if (answerYes) "sí" else "no"}»."
+                "Count each row: $n1 $e1 and $n2 $e2.",
+                "$n1 ${if (n1 > n2) "is more than" else "is less than"} $n2 → «${if (answerYes) "yes" else "no"}»."
             ), EX_COMPARA)
     }
 
@@ -547,14 +583,14 @@ object ChallengeEngine {
         val shown = nums.mapIndexed { i, n -> if (i == blankAt) "_" else n.toString() }
         val ans = nums[blankAt]
         return MathQuestion(
-            "¿Qué número falta?\n\n${shown.joinToString(",  ")}",
+            "Which number is missing?\n\n${shown.joinToString(",  ")}",
             distinctOptions(ans, listOf(ans + 1, ans - 1, ans + 2)), ans.toString(),
             listOf(
-                "Cuenta en orden: ${nums.joinToString(", ")}.",
-                "El número que falta es $ans."
+                "Count in order: ${nums.joinToString(", ")}.",
+                "The missing number is $ans."
             ),
-            WorkedExample("Ejemplo: el número que falta",
-                listOf("1, 2, _, 4", "Cuenta: 1, 2, 3, 4...", "¡Falta el 3!"))
+            WorkedExample("Example: the missing number",
+                listOf("1, 2, _, 4", "Count: 1, 2, 3, 4...", "3 is missing!"))
         )
     }
 
@@ -566,14 +602,14 @@ object ChallengeEngine {
         val ans = b
         val options = (listOf(a, b) + pool.drop(2).take(2)).shuffled()
         return MathQuestion(
-            "¿Qué sigue en el patrón?\n\n${seq.joinToString("  ")}  _",
+            "What comes next in the pattern?\n\n${seq.joinToString("  ")}  _",
             options, ans,
             listOf(
-                "El patrón se repite: $a $b $a $b...",
-                "Después de $a sigue $b."
+                "The pattern repeats: $a $b $a $b...",
+                "After $a comes $b."
             ),
-            WorkedExample("Ejemplo: patrones",
-                listOf("🔴 🔵 🔴 🔵 🔴 _", "Se repite rojo, azul, rojo, azul...", "Después del 🔴 sigue el 🔵."))
+            WorkedExample("Example: patterns",
+                listOf("🔴 🔵 🔴 🔵 🔴 _", "Repeat red, blue, red, blue...", "After 🔴 comes 🔵."))
         )
     }
 
@@ -581,11 +617,11 @@ object ChallengeEngine {
         val nums = (1..9).shuffled().take(4)
         val ans = nums.max()
         return MathQuestion(
-            "¿Cuál número es el MÁS GRANDE?",
+            "Which number is the BIGGEST?",
             nums.map { it.toString() }.shuffled(), ans.toString(),
-            listOf("De estos números, el más grande es $ans."),
-            WorkedExample("Ejemplo: el más grande",
-                listOf("Entre 2, 5 y 3...", "el más grande es 5,", "porque 5 tiene más que 2 y que 3."))
+            listOf("The biggest of these numbers is $ans."),
+            WorkedExample("Example: the biggest number",
+                listOf("Out of 2, 5 and 3...", "the biggest is 5,", "because 5 is more than 2 and 3."))
         )
     }
 
@@ -1466,13 +1502,24 @@ object ChallengeEngine {
         starterVocab.firstOrNull { it.emoji == emoji }?.word
 
     /** Guía de ayuda de inglés para los más pequeños. */
+    /** Read the tapped choice, including picture choices, without revealing the answer. */
+    fun optionSpeech(option: String): String = wordForEmoji(option) ?: when (option) {
+        "🔴" -> "red circle"
+        "🔵" -> "blue circle"
+        "🟡" -> "yellow circle"
+        "🟢" -> "green circle"
+        "🟠" -> "orange circle"
+        else -> option.replace("+", " plus ").replace("−", " minus ")
+            .replace("=", " equals ").replace(Regex("\\s+"), " ").trim()
+    }
+
     val starterEnglishHelp = WorkedExample(
-        "Palabras en inglés",
+        "English words",
         listOf(
-            "Mira el dibujo y di su nombre en inglés:",
-            "🐶 dog («dog»)   🐱 cat («cat»)",
-            "🍎 apple («ápol»)   ☀️ sun («san»)",
-            "Repite la palabra en voz alta 3 veces. ¡Así se aprende!"
+            "Look at the picture and say its name:",
+            "🐶 dog   🐱 cat",
+            "🍎 apple   ☀️ sun",
+            "Say the word out loud three times. Keep practicing!"
         )
     )
 
@@ -1485,21 +1532,21 @@ object ChallengeEngine {
         val others = withEmoji.filter { it != item }.shuffled().take(3)
         return if (Random.nextBoolean()) {
             EnglishExercise(
-                "Mira el dibujo. ¿Cómo se dice en inglés?",
+                "Look at the picture. What is it called?",
                 item.emoji,
                 (others.map { it.word } + item.word).shuffled(),
                 item.word,
-                "${item.emoji} es '${item.word}' en inglés (${item.es}). Dilo en voz alta: ${item.word}!",
-                "${item.word} = ${item.phon}"
+                "${item.emoji} is '${item.word}'. Say it out loud: ${item.word}!",
+                "${item.word}"
             )
         } else {
             EnglishExercise(
-                "¿Cuál dibujo es '${item.word}'?",
+                "Which picture shows '${item.word}'?",
                 item.word,
                 (others.map { it.emoji } + item.emoji).shuffled(),
                 item.emoji,
-                "'${item.word}' significa ${item.es}: ${item.emoji}. Repite: ${item.word}!",
-                "${item.word} = ${item.phon}"
+                "'${item.word}': ${item.emoji}. Say it again: ${item.word}!",
+                "${item.word}"
             )
         }
     }
@@ -1514,35 +1561,35 @@ object ChallengeEngine {
      * identificar una palabra y deletrear. Así el niño practica la B sin ver
      * diez veces la misma plantilla.
      */
-    private fun spellingEnglish(letter: Char): EnglishExercise =
-        spellingEnglish(spellingWords[letter.uppercaseChar()] ?: listOf("ball"))
+    private fun spellingEnglish(letter: Char, english: Boolean = false): EnglishExercise =
+        spellingEnglish(spellingWords[letter.uppercaseChar()] ?: listOf("ball"), english)
 
     /**
      * Una lista enviada por el padre es más específica que una letra: la
      * práctica de esta semana puede mezclar sand, top y bee, por ejemplo.
      */
-    private fun spellingEnglish(words: List<String>): EnglishExercise {
+    private fun spellingEnglish(words: List<String>, english: Boolean = false): EnglishExercise {
         val word = words.random()
         val upper = word.first().uppercaseChar()
         val wrongLetters = ('A'..'Z').filter { it != upper }.shuffled().take(3)
         return when ((0..3).random()) {
             0 -> EnglishExercise(
-                "Escucha y mira la palabra.",
-                "¿Con qué letra empieza '$word'?",
+                if (english) "Listen and look at the word." else "Escucha y mira la palabra.",
+                if (english) "What letter does '$word' start with?" else "¿Con qué letra empieza '$word'?",
                 (wrongLetters.map(Char::toString) + upper.toString()).shuffled(),
                 upper.toString(),
-                "'$word' empieza con la letra $upper.",
+                if (english) "'$word' starts with the letter $upper." else "'$word' empieza con la letra $upper.",
                 "/${upper.lowercaseChar()}/",
                 word
             )
             1 -> {
                 val ending = word.drop(1)
                 EnglishExercise(
-                    "Completa la palabra con la letra correcta.",
+                    if (english) "Complete the word with the correct letter." else "Completa la palabra con la letra correcta.",
                     "_${ending}",
                     (wrongLetters.map(Char::toString) + upper.toString()).shuffled(),
                     upper.toString(),
-                    "${upper}${ending} forma la palabra '$word'.",
+                    if (english) "${upper}${ending} spells '$word'." else "${upper}${ending} forma la palabra '$word'.",
                     "/${upper.lowercaseChar()}/",
                     word
                 )
@@ -1557,18 +1604,18 @@ object ChallengeEngine {
                     .shuffled()
                     .take(3)
                 EnglishExercise(
-                    "Busca una palabra que empiece con $upper.",
-                    "¿Cuál comienza con la letra $upper?",
+                    if (english) "Find a word that starts with $upper." else "Busca una palabra que empiece con $upper.",
+                    if (english) "Which word starts with the letter $upper?" else "¿Cuál comienza con la letra $upper?",
                     (others + word).shuffled(), word,
-                    "'$word' comienza con $upper.", "/${upper.lowercaseChar()}/", word
+                    if (english) "'$word' starts with $upper." else "'$word' comienza con $upper.", "/${upper.lowercaseChar()}/", word
                 )
             }
             else -> EnglishExercise(
-                "Deletrea con calma.",
-                "¿Cómo se deletrea '$word'?",
+                if (english) "Take your time and spell the word." else "Deletrea con calma.",
+                if (english) "How do you spell '$word'?" else "¿Cómo se deletrea '$word'?",
                 spellingChoices(word),
                 spell(word),
-                "La palabra '$word' se deletrea ${spell(word)}.",
+                if (english) "The word '$word' is spelled ${spell(word)}." else "La palabra '$word' se deletrea ${spell(word)}.",
                 "/${upper.lowercaseChar()}/",
                 word
             )
@@ -1605,7 +1652,7 @@ object ChallengeEngine {
     ): EnglishExercise {
         if (!spellingWords.isNullOrEmpty() || spellingLetter != null) {
             fun nextSpelling() = spellingWords?.takeIf { it.isNotEmpty() }
-                ?.let(::spellingEnglish) ?: spellingEnglish(spellingLetter!!)
+                ?.let { spellingEnglish(it, english = starter) } ?: spellingEnglish(spellingLetter!!, english = starter)
             var ex = nextSpelling()
             var tries = 0
             while (exclude != null && ex.question == exclude && tries < 8) {

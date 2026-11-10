@@ -69,6 +69,7 @@ import com.controlparental.kioscosuave.EnglishFocus
 import com.controlparental.kioscosuave.EnglishFocusStore
 import com.controlparental.kioscosuave.TriviumAiApi
 import com.controlparental.kioscosuave.GradeLevel
+import com.controlparental.kioscosuave.SpellingLetters
 import com.controlparental.kioscosuave.MathQuestion
 import com.controlparental.kioscosuave.ProgressSync
 import com.controlparental.kioscosuave.ReadingPassage
@@ -118,6 +119,7 @@ private data class Quiz(
     val wordToSpeak: String? = null,     // palabra en inglés a pronunciar al responder
     val exampleSentence: String? = null, // oración de ejemplo con esa palabra
     val visualWord: String? = null,      // recurso educativo opcional para spelling
+    val buildWord: String? = null,
     // Etiquetas de la memoria de aprendizaje: dicen QUÉ habilidad se está
     // practicando y con qué presentación, para poder registrar el resultado.
     val skillId: String? = null,
@@ -130,7 +132,7 @@ private fun stripEmoji(s: String): String =
         .replace(Regex("\\s+"), " ")
         .trim()
 
-private fun MathQuestion.toQuiz() = Quiz(
+private fun MathQuestion.toQuiz(starter: Boolean = false) = Quiz(
     instruction = null,
     question = question,
     options = options,
@@ -138,19 +140,16 @@ private fun MathQuestion.toQuiz() = Quiz(
     afterLines = steps,
     help = Help(example.title, example.lines),
     speech = stripEmoji(question.replace("\n", ". ")),
+    speechEnglish = starter,
     skillId = skillId,
     format = format
 )
 
 private fun EnglishExercise.toQuiz(starter: Boolean = false): Quiz {
-    // Si la "pregunta" tiene letras es texto en inglés (se lee con voz en inglés);
-    // si es solo un dibujo (emoji), se lee la instrucción en español.
+    // Starter instructions and questions are English. Older levels retain
+    // Spanish instructions for pictures and spelling prompts.
     val questionIsText = question.any { it.isLetter() }
-    // Spelling (es lo único que trae visualWord) es la excepción: su pregunta
-    // está en ESPAÑOL aunque cite la palabra ("¿Con qué letra empieza
-    // 'ball'?"), así que se lee con la voz en español. La palabra en inglés
-    // suena bien al responder (wordToSpeak). En "_all" no hay frase que leer:
-    // se lee la instrucción.
+    // For an incomplete word such as "_all", read the instruction.
     val spelling = visualWord != null
 
     // Palabra a pronunciar al seleccionar una respuesta: en preescolar, una de
@@ -160,7 +159,7 @@ private fun EnglishExercise.toQuiz(starter: Boolean = false): Quiz {
         listOf(question, correctAnswer).firstOrNull { it.any(Char::isLetter) }
     } else correctAnswer
 
-    // Oración de ejemplo para el botón "Escuchar en una oración".
+    // Oración de ejemplo para el botón de escuchar en una oración.
     val sentence = if (starter && word != null) {
         val article = if (word.firstOrNull()?.lowercaseChar() in listOf('a', 'e', 'i', 'o', 'u')) "an" else "a"
         "I see $article $word."
@@ -173,7 +172,7 @@ private fun EnglishExercise.toQuiz(starter: Boolean = false): Quiz {
         question = question,
         options = options,
         answer = correctAnswer,
-        afterLines = listOf(explanation, "🔊 Pronunciación: $phonetic"),
+        afterLines = if (starter) listOf(explanation) else listOf(explanation, "🔊 Pronunciación: $phonetic"),
         help = if (starter) Help(ChallengeEngine.starterEnglishHelp.title, ChallengeEngine.starterEnglishHelp.lines)
         else Help(ChallengeEngine.englishHelp.title, ChallengeEngine.englishHelp.lines),
         speech = when {
@@ -181,10 +180,11 @@ private fun EnglishExercise.toQuiz(starter: Boolean = false): Quiz {
             questionIsText -> stripEmoji(question)
             else -> instruction
         },
-        speechEnglish = questionIsText && !spelling,
+        speechEnglish = starter || (questionIsText && !spelling),
         wordToSpeak = word,
         exampleSentence = sentence,
-        visualWord = visualWord
+        visualWord = visualWord,
+        buildWord = visualWord?.takeIf { starter && correctAnswer == it.uppercase().toList().joinToString("-") }
     )
 }
 
@@ -241,7 +241,7 @@ fun KioskScreen(
         val h = maxHeight.value
         val m = remember(w, h, level) { Adaptive.metrics(w, h, level) }
 
-        CompositionLocalProvider(LocalMetrics provides m) {
+        CompositionLocalProvider(LocalMetrics provides m, LocalStarterEnglish provides (profile.grade == GradeLevel.PREESCOLAR)) {
             Column(
                 modifier = Modifier
                     // widthIn ANTES de fillMaxSize: primero se acota el ancho
@@ -263,7 +263,7 @@ fun KioskScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "Hola, ${profile.name} 👋",
+                            childText("Hola, ${profile.name} 👋", "Hi, ${profile.name} 👋"),
                             fontSize = m.greeting.sp,
                             lineHeight = m.lineHeight(m.greeting).sp,
                             fontWeight = FontWeight.Bold,
@@ -296,18 +296,18 @@ fun KioskScreen(
                             } else null
 
                             MultipleChoiceStage(
-                                title = "Matemáticas · operaciones y situaciones",
+                                title = childText("Matemáticas · operaciones y situaciones", "Math · numbers and problems"),
                                 accent = MaterialTheme.colorScheme.primary,
                                 window = config.mathWindow,
-                                nextLabel = "Continuar a Inglés",
+                                nextLabel = childText("Continuar a Inglés", "Continue to English"),
                                 stageKey = "math",
                                 initial = {
                                     (session?.nextQuestion()
-                                        ?: ChallengeEngine.generateMath(config.difficulty)).toQuiz()
+                                        ?: ChallengeEngine.generateMath(config.difficulty)).toQuiz(profile.grade == GradeLevel.PREESCOLAR)
                                 },
                                 loadNext = { prev ->
                                     (session?.nextQuestion()
-                                        ?: ChallengeEngine.generateMath(config.difficulty, prev)).toQuiz()
+                                        ?: ChallengeEngine.generateMath(config.difficulty, prev)).toQuiz(profile.grade == GradeLevel.PREESCOLAR)
                                 },
                                 onResult = { quiz, ok, wrong ->
                                     val id = quiz.skillId
@@ -327,14 +327,14 @@ fun KioskScreen(
                             // avanzada; Primaria se queda solo con lo básico.
                             val advanced = profile.grade == GradeLevel.SECUNDARIA
                             MultipleChoiceStage(
-                                title = spellingFocus?.let { "Inglés · Refuerzo: ${it.title}" }
-                                    ?: if (starter) "Inglés · palabras con dibujos"
+                                title = spellingFocus?.let { childText("Inglés · Refuerzo: ${it.title}", "English · Practice") }
+                                    ?: if (starter) childText("Inglés · palabras con dibujos", "English · picture words")
                                 else "Inglés · Lección de hoy: ${ChallengeEngine.todaysEnglishUnitTitle(advanced)}",
                                 accent = MaterialTheme.colorScheme.secondary,
                                 window = if (spellingFocus != null) 10 else config.englishWindow,
                                 correctTarget = spellingFocus?.correctTarget ?: config.englishWindow,
                                 progressKey = spellingFocus?.let { "english_spelling_${it.cacheKey}" },
-                                nextLabel = if (spellingFocus != null) "¡Completar refuerzo!" else "Continuar a $thirdLabel",
+                                nextLabel = if (spellingFocus != null) childText("¡Completar refuerzo!", "Finish practice!") else childText("Continuar a $thirdLabel", "Continue to $thirdLabel"),
                                 stageKey = "english",
                                 initial = {
                                     ChallengeEngine.randomEnglish(
@@ -366,16 +366,16 @@ fun KioskScreen(
                             // refuerzo semanal de spelling. Se reporta como
                             // "spelling" para no mezclarlo con la lectura.
                             GradeLevel.PREESCOLAR -> MultipleChoiceStage(
-                                title = "Spelling · letra B",
+                                title = childText("Spelling · letra B", "Spelling · letter B"),
                                 accent = Color(0xFFF59E0B),
                                 window = 10,
-                                nextLabel = "¡Desbloquear tablet!",
+                                nextLabel = childText("¡Desbloquear tablet!", "Unlock tablet!"),
                                 stageKey = "spelling",
                                 initial = {
-                                    ChallengeEngine.randomEnglish(spellingLetter = 'B').toQuiz(starter = true)
+                                    ChallengeEngine.randomEnglish(starter = true, spellingLetter = 'B').toQuiz(starter = true)
                                 },
                                 loadNext = { prev ->
-                                    ChallengeEngine.randomEnglish(exclude = prev, spellingLetter = 'B')
+                                    ChallengeEngine.randomEnglish(starter = true, exclude = prev, spellingLetter = 'B')
                                         .toQuiz(starter = true)
                                 },
                                 onDone = onAllComplete
@@ -406,7 +406,7 @@ private fun Header(name: String, onParentAccess: () -> Unit) {
     ) {
         Column(Modifier.weight(1f)) {
             Text(
-                "Hola, $name 👋",
+                childText("Hola, $name 👋", "Hi, $name 👋"),
                 fontSize = m.greeting.sp,
                 lineHeight = m.lineHeight(m.greeting).sp,
                 fontWeight = FontWeight.Bold,
@@ -424,7 +424,7 @@ private fun LockButton(onParentAccess: () -> Unit) {
     IconButton(onClick = onParentAccess, modifier = Modifier.size(m.minTouch.dp)) {
         Icon(
             Icons.Filled.Lock,
-            contentDescription = "Acceso de padres",
+            contentDescription = childText("Acceso de padres", "Parent access"),
             modifier = Modifier.size((m.actionIcon * 0.8f).dp)
         )
     }
@@ -437,8 +437,8 @@ private fun StepIndicator(stage: Stage, thirdLabel: String, modifier: Modifier =
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(m.itemGap.dp)
     ) {
-        Chip("Mate", stage == Stage.MATH, Modifier.weight(1f))
-        Chip("Inglés", stage == Stage.ENGLISH, Modifier.weight(1f))
+        Chip(childText("Mate", "Math"), stage == Stage.MATH, Modifier.weight(1f))
+        Chip(childText("Inglés", "English"), stage == Stage.ENGLISH, Modifier.weight(1f))
         Chip(thirdLabel, stage == Stage.READING, Modifier.weight(1f))
     }
 }
@@ -505,6 +505,7 @@ private fun MultipleChoiceStage(
 ) {
     val m = LocalMetrics.current
     val ctx = LocalContext.current
+    val confirmSelection = LocalStarterEnglish.current
     val history = remember(progressKey) {
         mutableStateListOf<Boolean>().apply {
             progressKey?.let { addAll(StageProgressStore.load(ctx, it)) }
@@ -535,8 +536,8 @@ private fun MultipleChoiceStage(
         HelpDialog(quiz.help!!) { showHelp = false }
     }
 
-    val onAnswer: (String) -> Unit = onAnswer@{ opt ->
-        if (result != null) return@onAnswer // ya respondió: no se reintenta
+    val submitAnswer: (String) -> Unit = submitAnswer@{ opt ->
+        if (result != null) return@submitAnswer // ya respondió: no se reintenta
         selected = opt
         val ok = opt == quiz.answer
         result = ok
@@ -554,11 +555,29 @@ private fun MultipleChoiceStage(
         // eligió, porque los distractores son errores típicos concretos.
         onResult(quiz, ok, if (ok) null else opt)
         // Pronuncia la palabra correcta al responder (acierte o no).
-        quiz.wordToSpeak?.let { TtsManager.speak(ctx, it, english = true) }
+        quiz.wordToSpeak?.let {
+            val spoken = if (quiz.buildWord != null) SpellingLetters.reviewSpeech(it) else it
+            TtsManager.speak(ctx, spoken, english = true)
+        }
+    }
+
+    val onAnswer: (String) -> Unit = { opt ->
+        if (result == null) {
+            if (confirmSelection) {
+                selected = opt
+                if (quiz.buildWord == null) {
+                    val spoken = opt.singleOrNull()?.takeIf { it.isLetter() }?.let(SpellingLetters::letterName)
+                        ?: ChallengeEngine.optionSpeech(opt)
+                    TtsManager.speak(ctx, spoken, english = true)
+                }
+            } else submitAnswer(opt)
+        }
     }
 
     val onNext: () -> Unit = {
-        if (passed) {
+        if (result == null) {
+            selected?.let(submitAnswer)
+        } else if (passed) {
             ProgressSync.reportStage(ctx, stageKey, history.count { it }, history.size)
             ProgressSync.reportSession(ctx, stageKey, attemptLog)
             progressKey?.let { StageProgressStore.clear(ctx, it) }
@@ -646,7 +665,7 @@ private fun MultipleChoiceStage(
                     ) {
                         AnswerArea(quiz, selected, result, onAnswer)
                     }
-                    NextButton(result, passed, nextLabel, onNext)
+                    NextButton(result, passed, nextLabel, onNext, confirmSelection, !selected.isNullOrEmpty() && (quiz.buildWord == null || selected!!.split("-").size == quiz.buildWord!!.length))
                 }
             }
         } else {
@@ -662,7 +681,7 @@ private fun MultipleChoiceStage(
             )
             Spacer(Modifier.size(m.sectionGap.dp))
             AnswerArea(quiz, selected, result, onAnswer)
-            NextButton(result, passed, nextLabel, onNext)
+            NextButton(result, passed, nextLabel, onNext, confirmSelection, !selected.isNullOrEmpty() && (quiz.buildWord == null || selected!!.split("-").size == quiz.buildWord!!.length))
         }
     }
 }
@@ -713,7 +732,7 @@ private fun StageControls(
             ) {
                 Icon(
                     Icons.Filled.Lightbulb,
-                    contentDescription = "Ver ejemplo de ayuda",
+                    contentDescription = childText("Ver ejemplo de ayuda", "Show an example"),
                     tint = accent,
                     modifier = Modifier.size((m.actionIcon * 0.8f).dp)
                 )
@@ -766,7 +785,7 @@ private fun ProgressIndicator(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "$accumulatedHits / $correctTarget correctas",
+                childText("$accumulatedHits / $correctTarget correctas", "$accumulatedHits / $correctTarget correct"),
                 fontSize = m.statusLine.sp,
                 lineHeight = m.lineHeight(m.statusLine).sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
@@ -784,8 +803,8 @@ private fun ProgressIndicator(
             )
             // La meta importa, pero como dato de apoyo, no como titular.
             Text(
-                if (isLongReinforcement) "últimas $recentHits/$recentTotal · meta $PASS_ACCURACY%"
-                else "meta $PASS_ACCURACY%",
+                if (isLongReinforcement) childText("últimas $recentHits/$recentTotal · meta $PASS_ACCURACY%", "last $recentHits/$recentTotal · goal $PASS_ACCURACY%")
+                else childText("meta $PASS_ACCURACY%", "goal $PASS_ACCURACY%"),
                 fontSize = (m.statusLine * 0.9f).sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
                 maxLines = 1
@@ -826,8 +845,14 @@ private fun AnswerArea(
     val ctx = LocalContext.current
 
     Column(Modifier.fillMaxWidth()) {
-        OptionsGrid(quiz.options, selected, result, quiz.answer, onAnswer,
-            playful = quiz.visualWord != null)
+        if (quiz.buildWord != null) {
+            androidx.compose.runtime.key(quiz) {
+                LetterBuilder(quiz.buildWord, result != null, onAnswer)
+            }
+        } else {
+            OptionsGrid(quiz.options, selected, result, quiz.answer, onAnswer,
+                playful = quiz.visualWord != null)
+        }
 
         result?.let { ok ->
             Spacer(Modifier.size(m.itemGap.dp))
@@ -836,10 +861,10 @@ private fun AnswerArea(
             // informa sin adornos, que es lo que espera de una herramienta.
             // El contenido educativo (quiz.afterLines) es el mismo en ambos.
             val header = when {
-                ok && m.level.isPrimary -> "🎉 ¡Muy bien!"
-                ok -> "✓ Correcto"
-                m.level.isPrimary -> "Casi. La respuesta era ${quiz.answer}."
-                else -> "La respuesta correcta era ${quiz.answer}."
+                ok && m.level.isPrimary -> childText("🎉 ¡Muy bien!", "🎉 Great job!")
+                ok -> childText("✓ Correcto", "✓ Correct")
+                m.level.isPrimary -> childText("Casi. La respuesta era ${quiz.answer}.", "Almost. The answer was ${quiz.answer}.")
+                else -> childText("La respuesta correcta era ${quiz.answer}.", "The correct answer was ${quiz.answer}.")
             }
             FeedbackBox(ok, (listOf(header) + quiz.afterLines).joinToString("\n"))
 
@@ -856,7 +881,7 @@ private fun AnswerArea(
                         modifier = Modifier.size((m.actionIcon * 0.6f).dp)
                     )
                     Spacer(Modifier.size(m.itemGap.dp))
-                    Text("Escuchar en una oración", fontSize = m.buttonLabel.sp, maxLines = 1)
+                    Text(childText("Escuchar en una oración", "Listen in a sentence"), fontSize = m.buttonLabel.sp, maxLines = 1)
                 }
             }
         }
@@ -869,20 +894,24 @@ private fun NextButton(
     result: Boolean?,
     passed: Boolean,
     nextLabel: String,
-    onNext: () -> Unit
+    onNext: () -> Unit,
+    confirmSelection: Boolean = false,
+    hasSelection: Boolean = false
 ) {
     val m = LocalMetrics.current
-    if (result == null) return
+    if (result == null && !confirmSelection) return
 
     Spacer(Modifier.size(m.itemGap.dp))
     Button(
         onClick = onNext,
+        enabled = result != null || hasSelection,
         shape = RoundedCornerShape(m.corner.dp),
         contentPadding = PaddingValues(vertical = m.buttonVPad.dp),
         modifier = Modifier.fillMaxWidth().heightIn(min = m.minTouch.dp)
     ) {
         Text(
-            if (passed) nextLabel else "Siguiente pregunta",
+            if (result == null) "Continue"
+            else if (passed) nextLabel else childText("Siguiente pregunta", "Next question"),
             fontSize = m.buttonLabel.sp,
             maxLines = 1
         )
@@ -896,7 +925,7 @@ private fun HelpDialog(help: Help, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Entendido", fontSize = m.buttonLabel.sp)
+                Text(childText("Entendido", "Got it"), fontSize = m.buttonLabel.sp)
             }
         },
         title = {
@@ -1103,7 +1132,7 @@ private fun QuestionCard(
                 ) {
                     Icon(
                         Icons.Filled.VolumeUp,
-                        contentDescription = "Escuchar la pregunta",
+                        contentDescription = childText("Escuchar la pregunta", "Listen to the question"),
                         tint = if (accent == Color.Unspecified) MaterialTheme.colorScheme.primary else accent,
                         modifier = Modifier.size((m.actionIcon * 0.8f).dp)
                     )
@@ -1157,6 +1186,7 @@ private fun OptionsGrid(
                                 // la respuesta buena junto a la propia enseña
                                 // más que solo saber que uno se equivocó.
                                 correctFlag == false && opt == answer -> AnswerState.REVEALED
+                                selected == opt && correctFlag == null -> AnswerState.SELECTED
                                 else -> AnswerState.IDLE
                             },
                             onClick = { onClick(opt) },
@@ -1178,6 +1208,8 @@ private fun OptionsGrid(
 private enum class AnswerState {
     /** Sin responder todavía, o no elegida. */
     IDLE,
+    /** Selected for listening, not graded yet. */
+    SELECTED,
     /** La eligió y era correcta. */
     CHOSEN_RIGHT,
     /** La eligió y era incorrecta. */
@@ -1208,6 +1240,7 @@ private fun AnswerButton(
     val esquema = MaterialTheme.colorScheme
 
     val container = when (state) {
+        AnswerState.SELECTED -> esquema.primary.copy(alpha = 0.4f)
         AnswerState.CHOSEN_RIGHT -> esquema.secondary
         AnswerState.CHOSEN_WRONG -> esquema.error
         // La correcta no elegida se marca en verde translúcido: se distingue de
@@ -1220,8 +1253,9 @@ private fun AnswerButton(
         onClick = onClick,
         enabled = enabled,
         shape = RoundedCornerShape(m.corner.dp),
-        border = if (playful) androidx.compose.foundation.BorderStroke(
+        border = if (playful || state == AnswerState.SELECTED) androidx.compose.foundation.BorderStroke(
             2.dp, when (state) {
+                AnswerState.SELECTED -> esquema.primary
                 AnswerState.CHOSEN_RIGHT, AnswerState.REVEALED -> esquema.secondary
                 AnswerState.CHOSEN_WRONG -> esquema.error
                 AnswerState.IDLE -> spellingColors[choiceIndex % spellingColors.size].copy(alpha = 0.65f)
@@ -1240,6 +1274,7 @@ private fun AnswerButton(
     ) {
         if (playful) {
             Text(when (state) {
+                AnswerState.SELECTED -> "●"
                 AnswerState.CHOSEN_RIGHT, AnswerState.REVEALED -> "✓"
                 AnswerState.CHOSEN_WRONG -> "↺"
                 AnswerState.IDLE -> "${choiceIndex + 1}"
@@ -1417,7 +1452,7 @@ private fun ReadingStage(advanced: Boolean, onApproved: () -> Unit) {
                 shape = RoundedCornerShape(m.corner.dp),
                 contentPadding = PaddingValues(vertical = m.buttonVPad.dp),
                 modifier = Modifier.fillMaxWidth().heightIn(min = m.minTouch.dp)
-            ) { Text("¡Desbloquear tablet!", fontSize = m.buttonLabel.sp) }
+            ) { Text(childText("¡Desbloquear tablet!", "Unlock tablet!"), fontSize = m.buttonLabel.sp) }
         } else {
             Button(
                 onClick = {
