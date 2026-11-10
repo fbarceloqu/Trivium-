@@ -231,8 +231,9 @@ fun KioskScreen(
     // amplio y visual; secundaria usa otro más denso y textual. La escala del
     // espacio sigue mandando encima, así que ningún nivel deja de caber.
     val level = Level.forGrade(profile.grade)
-    // En 1º de primaria la tercera etapa es spelling de la letra B, no lectura.
-    val thirdLabel = if (profile.grade == GradeLevel.PREESCOLAR) "Spelling" else "Lectura"
+    // 1º de primaria ve la interfaz en inglés (decisión previa), así que la
+    // pestaña también; la etapa en sí es de lectura en español.
+    val thirdLabel = if (profile.grade == GradeLevel.PREESCOLAR) "Reading" else "Lectura"
 
     // Se miden las dimensiones REALES disponibles, no la configuración global:
     // así también es correcto en pantalla dividida o ventana flotante.
@@ -360,26 +361,17 @@ fun KioskScreen(
                             )
                         }
                         Stage.READING -> when (profile.grade) {
-                            // 1º de primaria: spelling de la letra B en lugar de
-                            // lectura (decisión del padre, sept 2026). Usa el
-                            // mismo generador y las mismas imágenes que el
-                            // refuerzo semanal de spelling. Se reporta como
-                            // "spelling" para no mezclarlo con la lectura.
-                            GradeLevel.PREESCOLAR -> MultipleChoiceStage(
-                                title = childText("Spelling · letra B", "Spelling · letter B"),
-                                accent = Color(0xFFF59E0B),
-                                window = 10,
-                                nextLabel = childText("¡Desbloquear tablet!", "Unlock tablet!"),
-                                stageKey = "spelling",
-                                initial = {
-                                    ChallengeEngine.randomEnglish(starter = true, spellingLetter = 'B').toQuiz(starter = true)
-                                },
-                                loadNext = { prev ->
-                                    ChallengeEngine.randomEnglish(starter = true, exclude = prev, spellingLetter = 'B')
-                                        .toQuiz(starter = true)
-                                },
-                                onDone = onAllComplete
-                            )
+                            // 1º de primaria: alfabetización interactiva (sílabas,
+                            // palabras, oraciones y cuentos) en lugar del spelling
+                            // de la letra B que ocupaba esta etapa (decisión del
+                            // padre, nov 2026). El spelling sigue en la etapa de
+                            // Inglés y en los refuerzos semanales.
+                            //
+                            // Se enseña a leer en ESPAÑOL: por eso esta etapa
+                            // apaga el modo de interfaz en inglés de 1º.
+                            GradeLevel.PREESCOLAR -> CompositionLocalProvider(LocalStarterEnglish provides false) {
+                                LiteracyStage(nextLabel = "¡Desbloquear tablet!", onDone = onAllComplete)
+                            }
                             else -> ReadingStage(
                                 advanced = profile.grade == GradeLevel.SECUNDARIA,
                                 onApproved = onAllComplete
@@ -611,7 +603,24 @@ private fun MultipleChoiceStage(
         }
         Spacer(Modifier.size(m.sectionGap.dp))
 
-        if (m.mode == LayoutMode.TWO_PANE) {
+        val adventureWord = quiz.visualWord
+        if (confirmSelection && adventureWord != null) {
+            SpellingAdventure(
+                roundKey = quiz,
+                question = quiz.question,
+                word = adventureWord,
+                options = quiz.options,
+                building = quiz.buildWord != null,
+                selectedAnswer = selected,
+                answer = quiz.answer,
+                result = result,
+                imageRes = imageResForWord(adventureWord),
+                onSelection = onAnswer,
+                modifier = Modifier.fillMaxWidth().weight(1f)
+            )
+            NextButton(result, passed, nextLabel, onNext, confirmSelection,
+                !selected.isNullOrEmpty() && (quiz.buildWord == null || selected!!.split("-").size == quiz.buildWord!!.length))
+        } else if (m.mode == LayoutMode.TWO_PANE) {
             // El reparto depende del CONTENIDO, no es 50/50 fijo: una pregunta
             // de solo texto no necesita media pantalla, y estirarla dejaba una
             // tarjeta casi vacía. Con dibujo la izquierda manda; sin dibujo
@@ -753,7 +762,7 @@ private fun StageControls(
  * que es más informativo y menos infantil.
  */
 @Composable
-private fun ProgressIndicator(
+internal fun ProgressIndicator(
     recentHits: Int,
     recentTotal: Int,
     accumulatedHits: Int,
@@ -974,7 +983,7 @@ private fun imageResFor(emoji: String): Int? {
 }
 
 @Composable
-private fun imageResForWord(word: String): Int? {
+internal fun imageResForWord(word: String): Int? {
     val ctx = LocalContext.current
     return remember(word) {
         val name = word.lowercase().replace(" ", "_")
@@ -1316,7 +1325,7 @@ private fun OptionContent(opt: String) {
 }
 
 @Composable
-private fun FeedbackBox(ok: Boolean, message: String) {
+internal fun FeedbackBox(ok: Boolean, message: String) {
     val m = LocalMetrics.current
     Card(
         shape = RoundedCornerShape(m.corner.dp),
