@@ -68,6 +68,13 @@ fun main() {
         fun withWrong(k: Int) = List(n) { if (it < k) 1 else 0 }
         check(LongReadingQuiz.grade(r, withWrong(n - need)).passed, "${r.id}: $need/$n debería aprobar")
         check(!LongReadingQuiz.grade(r, withWrong(n - need + 1)).passed, "${r.id}: ${need - 1}/$n no debería aprobar")
+        // Más de la mitad mal -> cambia la lectura; la mitad exacta o menos -> se corrige.
+        (0..n).forEach { wrong ->
+            val g = LongReadingQuiz.grade(r, withWrong(wrong))
+            check(g.mustChangeReading == (wrong * 2 > n), "${r.id}: con $wrong/$n mal, cambiar lectura = ${g.mustChangeReading}")
+            check(!(g.passed && g.mustChangeReading), "${r.id}: no puede aprobar y cambiar de lectura a la vez")
+        }
+        check(LongReadingQuiz.grade(r, List(n) { null }).mustChangeReading, "${r.id}: sin responder nada debe cambiar la lectura")
         val res = LongReadingQuiz.grade(r, withWrong(2))
         check(res.weakSkills(r) == r.questions.take(2).map { it.skill }.distinct(), "${r.id}: no identifica las habilidades falladas")
     }

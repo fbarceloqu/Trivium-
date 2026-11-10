@@ -19,6 +19,7 @@ object ReadingQuizStore {
     private const val KEY_CURRENT = "current"
     private const val KEY_HISTORY = "history"
     private const val KEY_LAST_SCORE = "last_score"
+    private const val KEY_CARRIED = "carried_submits"
     private const val MAX_HISTORY = 40
 
     data class Current(
@@ -81,12 +82,23 @@ object ReadingQuizStore {
     fun lastScore(ctx: Context): Int? =
         prefs(ctx).getInt(KEY_LAST_SCORE, -1).takeIf { it >= 0 }
 
-    /** Cierra la lectura: pasa al historial y deja de estar "en curso". */
-    fun finish(ctx: Context, id: String, firstScore: Int) {
+    /**
+     * Envíos hechos en lecturas que se abandonaron por fallar más de la mitad.
+     * Se suman a los de la lectura siguiente para que el padre vea el total
+     * de intentos, no solo los de la última.
+     */
+    fun carriedSubmits(ctx: Context): Int = prefs(ctx).getInt(KEY_CARRIED, 0)
+
+    /**
+     * Cierra la lectura: pasa al historial y deja de estar "en curso".
+     * [carrySubmits] > 0 cuando se cierra SIN aprobar para cambiar de texto.
+     */
+    fun finish(ctx: Context, id: String, firstScore: Int, carrySubmits: Int = 0) {
         val history = (history(ctx) + id).takeLast(MAX_HISTORY)
         prefs(ctx).edit()
             .putString(KEY_HISTORY, JSONArray(history).toString())
             .putInt(KEY_LAST_SCORE, firstScore)
+            .putInt(KEY_CARRIED, carrySubmits)
             .remove(KEY_CURRENT)
             .apply()
     }

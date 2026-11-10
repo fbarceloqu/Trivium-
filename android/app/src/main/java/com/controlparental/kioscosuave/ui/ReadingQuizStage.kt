@@ -27,6 +27,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -66,6 +67,8 @@ import com.controlparental.kioscosuave.curriculum.LongReadingValidator
  *  - Si no se alcanza, se marcan las preguntas falladas SIN revelar la
  *    respuesta; el alumno vuelve al texto y las corrige. Cada envío cuenta
  *    como un intento en el reporte para el padre.
+ *  - Si falla MÁS de la mitad, no se corrige: se cambia de lectura (decisión
+ *    del padre, nov 2026). Evita aprobar por descarte un texto no entendido.
  *  - Las explicaciones aparecen al aprobar, no antes.
  *  - A la memoria de aprendizaje solo llega el PRIMER envío: es el que mide
  *    lo que se entendió al leer.
@@ -74,6 +77,16 @@ private val readingAccent = Color(0xFFF59E0B)
 
 @Composable
 internal fun ReadingQuizStage(onApproved: () -> Unit) {
+    // Cada lectura es una ronda con su propio estado; al cambiar de texto se
+    // descarta la ronda entera y se empieza otra.
+    var generation by remember { mutableIntStateOf(0) }
+    key(generation) {
+        ReadingQuizRound(onApproved = onApproved, onNewReading = { generation++ })
+    }
+}
+
+@Composable
+private fun ReadingQuizRound(onApproved: () -> Unit, onNewReading: () -> Unit) {
     val m = LocalMetrics.current
     val ctx = LocalContext.current
 
@@ -88,7 +101,10 @@ internal fun ReadingQuizStage(onApproved: () -> Unit) {
             val valid = LongReadingBank.readings.filter { LongReadingValidator.errors(it).isEmpty() }
                 .ifEmpty { LongReadingBank.readings }
             val pick = LongReadingQuiz.pick(valid, ReadingQuizStore.history(ctx), ReadingQuizStore.lastScore(ctx))
-            val fresh = ReadingQuizStore.Current(pick.id, System.nanoTime(), List(pick.questions.size) { null })
+            val fresh = ReadingQuizStore.Current(
+                pick.id, System.nanoTime(), List(pick.questions.size) { null },
+                submits = ReadingQuizStore.carriedSubmits(ctx)
+            )
             ReadingQuizStore.saveCurrent(ctx, fresh)
             pick to fresh
         }
@@ -104,7 +120,7 @@ internal fun ReadingQuizStage(onApproved: () -> Unit) {
     var showingResult by remember { mutableStateOf(start.second.showingResult) }
     var index by remember { mutableIntStateOf(answers.indexOfFirst { it == null }.coerceAtLeast(0)) }
     // En vertical no caben los dos paneles: se alterna con pestañas.
-    var showText by remember { mutableStateOf(submits == 0 && answers.all { it == null }) }
+    var showText by remember { mutableStateOf(answers.all { it == null }) }
 
     val result = if (showingResult) LongReadingQuiz.grade(reading, answers) else null
 
@@ -145,7 +161,8 @@ internal fun ReadingQuizStage(onApproved: () -> Unit) {
         persist()
     }
 
-    fun finish() {
+    /** Reporta el primer envío de esta lectura y la cierra. */
+    fun close(carrySubmits: Int) {
         val first = firstAnswers ?: answers.toList()
         val firstResult = LongReadingQuiz.grade(reading, first)
         ProgressSync.reportSession(ctx, "reading", reading.questions.mapIndexed { i, q ->
@@ -157,9 +174,14 @@ internal fun ReadingQuizStage(onApproved: () -> Unit) {
                 explanation = q.explanation
             )
         })
-        ReadingQuizStore.finish(ctx, reading.id, firstResult.score)
-        onApproved()
+        ReadingQuizStore.finish(ctx, reading.id, firstResult.score, carrySubmits)
     }
+
+    fun finish() { close(carrySubmits = 0); onApproved() }
+
+    // El puntaje bajo queda como "último resultado", así que la siguiente
+    // lectura sale de la mitad más corta del banco.
+    fun changeReading() { close(carrySubmits = submits); onNewReading() }
 
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -203,6 +225,7 @@ internal fun ReadingQuizStage(onApproved: () -> Unit) {
                     onClick = {
                         when {
                             result?.passed == true -> finish()
+                            result?.mustChangeReading == true -> changeReading()
                             result != null -> retry()
                             else -> submit()
                         }
@@ -215,6 +238,7 @@ internal fun ReadingQuizStage(onApproved: () -> Unit) {
                     Text(
                         when {
                             result?.passed == true -> "Desbloquear tablet"
+                            result?.mustChangeReading == true -> "Leer otra lectura"
                             result != null -> "Volver al texto y corregir"
                             answers.any { it == null } -> "Responde todas para enviar"
                             else -> "Enviar respuestas"
@@ -439,6 +463,15 @@ private fun RetryPane(result: LongReadingQuiz.Result, modifier: Modifier) {
             "${result.correct} de ${result.total} correctas",
             fontSize = m.question.sp, fontWeight = FontWeight.Bold
         )
+        if (result.mustChangeReading) {
+            // Aquí no se marcan las falladas: este texto ya no se corrige.
+            Text(
+                "Para aprobar necesitas $needed. Fallaste más de la mitad, así que vas a leer otro texto. " +
+                    "Léelo completo y con calma antes de responder; puedes consultarlo cuantas veces quieras.",
+                fontSize = m.feedback.sp, lineHeight = m.lineHeight(m.feedback).sp
+            )
+            return@Column
+        }
         Text(
             "Para aprobar necesitas $needed. Las preguntas marcadas tienen una respuesta incorrecta: " +
                 "vuelve al texto, busca el fragmento que las responde y corrígelas. " +

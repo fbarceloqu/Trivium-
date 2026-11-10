@@ -141,6 +141,13 @@ object LongReadingQuiz {
     ) {
         val score: Int get() = if (total == 0) 0 else correct * 100 / total
         val passed: Boolean get() = score >= PASS_SCORE
+
+        /**
+         * Falló MÁS de la mitad: no tiene sentido corregir pregunta por
+         * pregunta (sería aprobar por descarte); toca leer otro texto.
+         * Con la mitad exacta (3 de 6) todavía se permite corregir.
+         */
+        val mustChangeReading: Boolean get() = (total - correct) * 2 > total
         /** Tipos de pregunta fallados: lo que conviene reforzar. */
         fun weakSkills(r: LongReading): List<ComprehensionSkill> =
             r.questions.filterIndexed { i, _ -> !perQuestion[i] }.map { it.skill }.distinct()
