@@ -14,6 +14,7 @@ código no cumplía.
 | `ValidatorTest` | 15 casos de narrativa de IA: acepta lo válido, rechaza lo que cambia números o regala la respuesta |
 | `GuideTest` | Guías: emparejan sin duplicar, la urgencia escala, no monopolizan la sesión |
 | `LiteracyTest` | Alfabetización de 1º: clave única, sílabas sin ambigüedad, evidencia en el texto, progresión por dominio, refuerzo y recuperación tras cerrar. Sale con código de error si falla |
+| `LongReadingTest` | Lecturas de secundaria: 500–800 palabras, 6–8 preguntas con los seis tipos de comprensión, una sola clave, evidencia literal en el texto, opciones de tamaño parejo, umbral 5/6·6/7·7/8, selección sin repetir y registro en memoria. Sale con código de error si falla |
 | `MetricsTest` | Las dos tablets reales × 2 orientaciones × 2 densidades: nada se desborda |
 
 ## Por qué están aquí y no en `src/test/`

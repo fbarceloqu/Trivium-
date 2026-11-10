@@ -372,8 +372,14 @@ fun KioskScreen(
                             GradeLevel.PREESCOLAR -> CompositionLocalProvider(LocalStarterEnglish provides false) {
                                 LiteracyStage(nextLabel = "¡Desbloquear tablet!", onDone = onAllComplete)
                             }
+                            // Secundaria: lectura larga con cuestionario de opción
+                            // múltiple en lugar del resumen escrito (decisión del
+                            // padre, nov 2026). Calificación determinista, mismo
+                            // umbral de 80 %, sin depender de la IA ni de la red.
+                            GradeLevel.SECUNDARIA -> ReadingQuizStage(onApproved = onAllComplete)
+                            // Primaria (2º a 6º) conserva la lectura con resumen.
                             else -> ReadingStage(
-                                advanced = profile.grade == GradeLevel.SECUNDARIA,
+                                advanced = false,
                                 onApproved = onAllComplete
                             )
                         }
