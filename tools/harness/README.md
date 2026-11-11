@@ -15,6 +15,8 @@ código no cumplía.
 | `GuideTest` | Guías: emparejan sin duplicar, la urgencia escala, no monopolizan la sesión |
 | `LiteracyTest` | Alfabetización de 1º: clave única, sílabas sin ambigüedad, evidencia en el texto, progresión por dominio, refuerzo y recuperación tras cerrar. Sale con código de error si falla |
 | `LongReadingTest` | Lecturas de secundaria: 500–800 palabras, 6–8 preguntas con los seis tipos de comprensión, una sola clave, evidencia literal en el texto, opciones de tamaño parejo, umbral 5/6·6/7·7/8, selección sin repetir y registro en memoria. Sale con código de error si falla |
+| `MathOptionsTest` | Distractores de matemáticas: audita 41,600 ejercicios y falla si la respuesta se puede adivinar por magnitud, por ser la única entera o decimal, por opciones equivalentes (0.5 y 1/2) o por cantidades imposibles (5.4 galletas). Con el argumento `audit` solo informa |
+| `EnglishGuideTest` | Inglés: cada una de las 17 unidades tiene su guía, cada ejercicio recibe la de su tema (no la general de tiempos verbales), y la guía no contiene la oración resuelta ni la palabra que se pregunta |
 | `MetricsTest` | Las dos tablets reales × 2 orientaciones × 2 densidades: nada se desborda |
 
 ## Por qué están aquí y no en `src/test/`

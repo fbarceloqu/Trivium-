@@ -97,7 +97,24 @@ object Sec1MathGenerator {
      * Genera un ejercicio de [skill]. Si [format] es null o no aplica a esa
      * habilidad, se elige uno de los formatos declarados en el temario.
      */
+    /**
+     * Genera un ejercicio y REVISA sus opciones antes de entregarlo.
+     *
+     * Si los datos del problema dan una respuesta imposible (31.5 alumnos) se
+     * vuelve a generar; si la respuesta se puede adivinar sin resolver, se
+     * sustituyen los distractores que la delatan. Ver [MathOptionRepair].
+     */
     fun generate(skill: Skill, format: ExerciseFormat? = null): MathQuestion? {
+        var q = raw(skill, format) ?: return null
+        var tries = 0
+        while (tries++ < 12 && MathOptionValidator.errors(q.question, q.options, q.answer)
+                .any { it.startsWith(MathOptionValidator.ANSWER_IMPOSSIBLE) }
+        ) q = raw(skill, format) ?: return q
+        return q.copy(options = MathOptionRepair.repair(q.question, q.options, q.answer))
+    }
+
+    /** El ejercicio tal como sale del generador, sin revisar. Para auditorías. */
+    fun raw(skill: Skill, format: ExerciseFormat? = null): MathQuestion? {
         val f = format?.takeIf { it in skill.formats } ?: skill.formats.random()
         return when (skill.id) {
             Curriculum.NUM_TIPOS.id -> Sec1Numeros.tipos(f)

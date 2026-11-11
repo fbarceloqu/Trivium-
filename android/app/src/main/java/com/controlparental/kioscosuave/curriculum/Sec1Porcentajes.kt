@@ -32,8 +32,15 @@ internal object Sec1Porcentajes {
     )
 
     fun deCantidad(format: ExerciseFormat): MathQuestion {
-        val base = listOf(60, 80, 120, 160, 240, 300, 45, 90, 200).random()
-        val p = listOf(10, 15, 20, 25, 30, 35, 40, 50, 75).random()
+        // Los problemas con contexto cuentan alumnos, páginas o árboles: se
+        // eligen datos cuyo resultado sea entero (no existen 31.5 alumnos).
+        val needsWhole = format == ExerciseFormat.CONTEXTO
+        var base: Int
+        var p: Int
+        do {
+            base = listOf(60, 80, 120, 160, 240, 300, 45, 90, 200).random()
+            p = listOf(10, 15, 20, 25, 30, 35, 40, 50, 75).random()
+        } while (needsWhole && (base * p) % 100 != 0)
         val dec = p / 100.0
         val ans = base * dec
 
@@ -100,11 +107,16 @@ internal object Sec1Porcentajes {
 
         return MathQuestion(
             question = question,
+            // Los errores de antes (volver a aplicar el %, sumar el % al dato)
+            // daban números mucho menores que el total: la respuesta era la
+            // única grande y se elegía sin calcular. Estos son errores igual de
+            // frecuentes, pero del mismo orden de magnitud que la respuesta.
             options = Gen.numOpts(
                 total.toDouble(),
-                part * p / 100.0,      // error: volver a aplicar el %
-                part * (100 - p) / 100.0,
-                part + p               // error: sumar el % al dato
+                total - part,          // error: dar el resto (lo que NO es la parte)
+                total + part,          // error: sumar la parte al total
+                part * p / 10.0,       // error: multiplicar por el % en vez de dividir
+                Math.round(part * 100.0 / (100 - p)).toDouble() // error: dividir entre el complemento
             ),
             answer = Gen.fmt(total.toDouble()),
             steps = listOf(
@@ -224,8 +236,13 @@ internal object Sec1Porcentajes {
     )
 
     fun aumento(format: ExerciseFormat): MathQuestion {
-        val base = listOf(80, 150, 400, 500, 835, 1200).random()
-        val p = listOf(10, 15, 20, 25, 30, 50).random()
+        // Alumnos, piezas y habitantes se cuentan: el aumento debe ser entero.
+        var base: Int
+        var p: Int
+        do {
+            base = listOf(80, 150, 400, 500, 840, 1200).random()
+            p = listOf(10, 15, 20, 25, 30, 50).random()
+        } while ((base * p) % 100 != 0)
         val extra = base * p / 100.0
         val ans = base + extra
 

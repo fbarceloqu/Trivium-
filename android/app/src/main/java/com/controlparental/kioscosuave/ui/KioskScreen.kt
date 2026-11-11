@@ -174,7 +174,9 @@ private fun EnglishExercise.toQuiz(starter: Boolean = false): Quiz {
         answer = correctAnswer,
         afterLines = if (starter) listOf(explanation) else listOf(explanation, "🔊 Pronunciación: $phonetic"),
         help = if (starter) Help(ChallengeEngine.starterEnglishHelp.title, ChallengeEngine.starterEnglishHelp.lines)
-        else Help(ChallengeEngine.englishHelp.title, ChallengeEngine.englishHelp.lines),
+        // La guía es la del TEMA del ejercicio (comparativos, modales…), no
+        // una general de tiempos verbales para todo.
+        else ChallengeEngine.englishHelpFor(this).let { Help(it.title, it.lines) },
         speech = when {
             spelling && question.startsWith("_") -> instruction
             questionIsText -> stripEmoji(question)

@@ -426,10 +426,14 @@ internal object Sec1Aritmetica {
         return MathQuestion(
             "Si $cantidad $cosa cuestan \$$total en total, ¿cuánto cuesta cada uno?",
             Gen.numOpts(
+                // Antes los tres errores eran mayores que el total (restar,
+                // multiplicar, dar el total): la respuesta era siempre la más
+                // pequeña y bastaba elegirla. Ahora dos son del mismo tamaño.
                 unidad.toDouble(),
+                cantidad.toDouble(),                 // error: dar la cantidad de piezas
+                unidad * 2.0,                        // error: dividir entre la mitad de las piezas
                 total.toDouble(),                    // error: dar el total
-                (total - cantidad).toDouble(),       // error: restar
-                total.toDouble() * cantidad          // error: multiplicar
+                (total - cantidad).toDouble()        // error: restar en vez de dividir
             ),
             unidad.toString(),
             listOf(

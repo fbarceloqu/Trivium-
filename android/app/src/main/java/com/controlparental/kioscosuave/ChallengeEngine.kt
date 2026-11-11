@@ -351,7 +351,11 @@ object ChallengeEngine {
         )
     )
 
-    /** Guía de ayuda de inglés (mini-gramática general por tiempos). */
+    /**
+     * Guía GENERAL de inglés (tiempos verbales). Ya no es la ayuda de todos los
+     * ejercicios: cada unidad tiene la suya en [EnglishGuides]; esta queda solo
+     * como respaldo. Ver [englishHelpFor].
+     */
     val englishHelp = WorkedExample(
         "Mini-guía de inglés",
         listOf(
@@ -1487,6 +1491,22 @@ object ChallengeEngine {
         val pool = englishPool(advanced)
         val dayOfYear = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_YEAR)
         return dayOfYear % pool.size
+    }
+
+    /** Unidades disponibles para el nivel (lectura; para pruebas y guías). */
+    fun englishUnits(advanced: Boolean): List<EnglishUnit> = englishPool(advanced)
+
+    /**
+     * Guía de ayuda que corresponde a ESTE ejercicio: la de su unidad, o la de
+     * deletreo si es un ejercicio de spelling. Solo si no pertenece a ninguna
+     * unidad conocida se cae a la guía general de tiempos verbales.
+     */
+    fun englishHelpFor(exercise: EnglishExercise): WorkedExample {
+        if (exercise.visualWord != null) return EnglishGuides.spelling
+        val unit = (englishUnits + englishAdvancedUnits).firstOrNull { u ->
+            u.bank.any { it.question == exercise.question && it.correctAnswer == exercise.correctAnswer }
+        }
+        return unit?.let { EnglishGuides.forUnit(it.title) } ?: englishHelp
     }
 
     /** Título de la lección de inglés de HOY (para mostrar en la UI). */
