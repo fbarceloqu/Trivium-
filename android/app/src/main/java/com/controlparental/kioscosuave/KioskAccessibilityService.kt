@@ -3,6 +3,7 @@ package com.controlparental.kioscosuave
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.content.Intent
+import android.os.PowerManager
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.inputmethod.InputMethodManager
@@ -54,6 +55,12 @@ class KioskAccessibilityService : AccessibilityService() {
 
         if (!SessionStateMachine.isLocked(ctx)) return
         if (packageName == ctx.packageName) return
+
+        // Con la pantalla apagada nadie está "saliendo" del kiosco. Al apagarse,
+        // One UI emite un cambio de ventana de su launcher; rebotar ahí inyecta
+        // HOME, que despierta la pantalla y la deja en un ciclo de encendido.
+        val power = getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (!power.isInteractive) return
 
         // Ignorar ventanas del sistema y teclados: no son "salidas" del kiosco.
         if (packageName in SYSTEM_UI_PACKAGES || packageName in imePackages) return

@@ -62,6 +62,28 @@ fun main() {
     println("  ${units.size} unidades · ${guides.size} guías propias")
 
     // =============================================================
+    println("\n### 1b. Calidad de los bancos ###\n")
+    units.forEach { u ->
+        // La etapa pide 10 respuestas: con menos ejercicios se repiten y se
+        // puede aprobar de memoria.
+        check(u.bank.size >= 10, "«${u.title}» tiene solo ${u.bank.size} ejercicios")
+        check(u.bank.map { it.question }.distinct().size == u.bank.size, "«${u.title}»: preguntas repetidas")
+        u.bank.forEach { ex ->
+            val o = ex.options
+            check(o.size == 4 && o.distinct().size == 4, "«${ex.question.take(40)}»: no tiene 4 opciones distintas")
+            check(o.count { it == ex.correctAnswer } == 1, "«${ex.question.take(40)}»: la respuesta no aparece una sola vez")
+            check(o.map { it.lowercase() }.distinct().size == 4, "«${ex.question.take(40)}»: opciones que solo difieren en mayúsculas")
+            check(ex.explanation.isNotBlank() && ex.phonetic.isNotBlank(), "«${ex.question.take(40)}»: sin explicación o pronunciación")
+            // La respuesta no debe delatarse por ser mucho más larga que el resto.
+            val others = o.filter { it != ex.correctAnswer }.map { it.length }
+            check(ex.correctAnswer.length <= others.max() * 2 + 3, "«${ex.question.take(40)}»: la respuesta destaca por longitud")
+            // Una oración con hueco tiene exactamente un hueco.
+            if ("______" in ex.question) check(ex.question.split("______").size == 2, "«${ex.question.take(40)}»: más de un hueco")
+        }
+    }
+    println("  ${units.sumOf { it.bank.size }} ejercicios en total · mínimo por unidad: ${units.minOf { it.bank.size }}")
+
+    // =============================================================
     println("\n### 2. Cada ejercicio recibe la guía de SU tema ###\n")
     var exercises = 0
     units.forEach { u ->

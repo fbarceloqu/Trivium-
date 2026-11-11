@@ -122,6 +122,27 @@ fun main(args: Array<String>) {
     println("  caso reportado: [240, 5.4, 30.6, 51] -> $fixed")
     check(V.errors(galletas, fixed, "240").isEmpty() && "240" in fixed, "el caso reportado no queda reparado")
 
+    // =============================================================
+    println("\n### 4. Las pistas de la pizarra nunca contienen la respuesta ###\n")
+    val H = com.controlparental.kioscosuave.curriculum.MathHints
+    var withHints = 0
+    var hintTotal = 0
+    for (skill in Sec1MathGenerator.implemented) for (format in skill.formats) repeat(120) {
+        val q = Sec1MathGenerator.generate(skill, format) ?: return@repeat
+        val hints = H.safe(q.steps, q.answer)
+        hintTotal++
+        if (hints.isNotEmpty()) withHints++
+        check(hints.size <= H.MAX, "${skill.id}: demasiadas pistas")
+        check(hints.size < q.steps.size || q.steps.isEmpty(), "${skill.id}: las pistas incluyen el procedimiento completo")
+        hints.forEach { h -> check(!H.reveals(h, q.answer), "${skill.id}: la pista «$h» contiene la respuesta ${q.answer}") }
+    }
+    println("  ejercicios con al menos una pista: ${"%.0f".format(withHints * 100.0 / hintTotal)}%")
+    check(H.reveals("168 ÷ 14 = 12", "12") && H.reveals("Pagas $170", "$170") && H.reveals("Es el 25%", "25%"), "no reconoce la respuesta dentro de un paso")
+    check(!H.reveals("El total es 120", "12") && !H.reveals("3.12 × 2", "12") && !H.reveals("12.5 por pieza", "12"), "confunde 12 con 120, 3.12 o 12.5")
+    check(H.safe(listOf("20% = 0.20", "80 × 0.20 = 16"), "16") == listOf("20% = 0.20"), "debe dar el planteamiento y cortar en el resultado")
+    check(H.safe(listOf("168 ÷ 14 = 12", "Comprueba"), "12").isEmpty(), "si el primer paso ya da el resultado, no hay pista")
+    check(H.safe(listOf("a", "b"), "zz").size == 1, "nunca se entrega el procedimiento entero")
+
     if (!auditOnly) check(bad == 0, "$bad ejercicios entregados tienen opciones defectuosas")
     println(if (fallas == 0) "\nPASS: opciones de matemáticas." else "\n$fallas FALLAS")
     if (fallas != 0) exitProcess(1)

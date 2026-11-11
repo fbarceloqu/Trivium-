@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.VolumeUp
@@ -46,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -80,6 +82,7 @@ import com.controlparental.kioscosuave.MemoryStore
 import com.controlparental.kioscosuave.TtsManager
 import com.controlparental.kioscosuave.curriculum.Curriculum
 import com.controlparental.kioscosuave.curriculum.ExerciseFormat
+import com.controlparental.kioscosuave.curriculum.MathHints
 import com.controlparental.kioscosuave.curriculum.StudySession
 
 /**
@@ -304,6 +307,9 @@ fun KioskScreen(
                                 window = config.mathWindow,
                                 nextLabel = childText("Continuar a Inglés", "Continue to English"),
                                 stageKey = "math",
+                                // Pizarra para hacer operaciones. En 1º no:
+                                // ahí se cuenta con dibujos, no se escribe.
+                                scratchpad = profile.grade != GradeLevel.PREESCOLAR,
                                 initial = {
                                     (session?.nextQuestion()
                                         ?: ChallengeEngine.generateMath(config.difficulty)).toQuiz(profile.grade == GradeLevel.PREESCOLAR)
@@ -501,7 +507,9 @@ private fun MultipleChoiceStage(
     loadNext: (String) -> Quiz,
     onDone: () -> Unit,
     /** Se avisa de cada respuesta para alimentar la memoria de aprendizaje. */
-    onResult: (quiz: Quiz, correct: Boolean, wrongChoice: String?) -> Unit = { _, _, _ -> }
+    onResult: (quiz: Quiz, correct: Boolean, wrongChoice: String?) -> Unit = { _, _, _ -> },
+    /** Ofrece la pizarra de borrador y las pistas. No afecta a la calificación. */
+    scratchpad: Boolean = false
 ) {
     val m = LocalMetrics.current
     val ctx = LocalContext.current
@@ -520,6 +528,24 @@ private fun MultipleChoiceStage(
     var selected by remember { mutableStateOf<String?>(null) }
     var result by remember { mutableStateOf<Boolean?>(null) }
     var showHelp by remember { mutableStateOf(false) }
+
+    // Borrador de la pregunta actual: los trazos y las pistas vistas se
+    // conservan al cerrar la pizarra y se descartan al cambiar de pregunta.
+    var showPad by remember { mutableStateOf(false) }
+    val ink = remember(quiz) { mutableStateListOf<InkStroke>() }
+    var shownHints by remember(quiz) { mutableIntStateOf(0) }
+    val hints = remember(quiz) { if (scratchpad) MathHints.safe(quiz.afterLines, quiz.answer) else emptyList() }
+    val onScratch: (() -> Unit)? = if (scratchpad) ({ showPad = true }) else null
+    if (showPad) {
+        MathScratchpad(
+            question = quiz.question,
+            strokes = ink,
+            hints = hints,
+            shownHints = shownHints,
+            onMoreHints = { if (shownHints < hints.size) shownHints++ },
+            onClose = { showPad = false }
+        )
+    }
 
     val recent = history.takeLast(window)
     val windowHits = recent.count { it }
@@ -603,10 +629,10 @@ private fun MultipleChoiceStage(
                 Box(Modifier.weight(1f)) {
                     ProgressIndicator(windowHits, window, totalHits, correctTarget, accent)
                 }
-                StageControls(accent, quiz) { showHelp = true }
+                StageControls(accent, quiz, onScratch) { showHelp = true }
             }
         } else {
-            StageBar(title, accent, quiz) { showHelp = true }
+            StageBar(title, accent, quiz, onScratch) { showHelp = true }
             ProgressIndicator(windowHits, window, totalHits, correctTarget, accent)
         }
         Spacer(Modifier.size(m.sectionGap.dp))
@@ -708,6 +734,7 @@ private fun StageBar(
     title: String,
     accent: Color,
     quiz: Quiz,
+    onScratch: (() -> Unit)? = null,
     onHelp: () -> Unit
 ) {
     val m = LocalMetrics.current
@@ -724,7 +751,7 @@ private fun StageBar(
             maxLines = 2,
             modifier = Modifier.weight(1f)
         )
-        StageControls(accent, quiz, onHelp)
+        StageControls(accent, quiz, onScratch, onHelp)
     }
 }
 
@@ -738,10 +765,24 @@ private fun StageBar(
 private fun StageControls(
     accent: Color,
     quiz: Quiz,
+    onScratch: (() -> Unit)? = null,
     onHelp: () -> Unit
 ) {
     val m = LocalMetrics.current
     Row(verticalAlignment = Alignment.CenterVertically) {
+        if (onScratch != null) {
+            IconButton(
+                onClick = onScratch,
+                modifier = Modifier.size(m.minTouch.dp)
+            ) {
+                Icon(
+                    Icons.Filled.Edit,
+                    contentDescription = childText("Abrir la pizarra para hacer operaciones", "Open the scratchpad"),
+                    tint = accent,
+                    modifier = Modifier.size((m.actionIcon * 0.8f).dp)
+                )
+            }
+        }
         if (quiz.help != null) {
             IconButton(
                 onClick = onHelp,

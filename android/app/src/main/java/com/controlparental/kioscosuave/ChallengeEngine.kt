@@ -1484,8 +1484,14 @@ object ChallengeEngine {
     /** Índice de la unidad del día (rotación determinística por fecha). [advanced]=true
      *  incluye también el banco de gramática avanzada (Secundaria); Primaria usa
      *  solo el básico. */
+    // Cada unidad con sus ejercicios adicionales (ver EnglishExtraBank): las
+    // básicas tenían 5 y se repetían dentro de una misma sesión de 10.
+    private val allEnglishUnits: List<EnglishUnit> by lazy {
+        (englishUnits + englishAdvancedUnits).map { it.copy(bank = it.bank + EnglishExtraBank.forUnit(it.title)) }
+    }
+
     private fun englishPool(advanced: Boolean): List<EnglishUnit> =
-        if (advanced) englishUnits + englishAdvancedUnits else englishUnits
+        if (advanced) allEnglishUnits else allEnglishUnits.take(englishUnits.size)
 
     private fun todaysUnitIndex(advanced: Boolean = false): Int {
         val pool = englishPool(advanced)
@@ -1503,7 +1509,7 @@ object ChallengeEngine {
      */
     fun englishHelpFor(exercise: EnglishExercise): WorkedExample {
         if (exercise.visualWord != null) return EnglishGuides.spelling
-        val unit = (englishUnits + englishAdvancedUnits).firstOrNull { u ->
+        val unit = allEnglishUnits.firstOrNull { u ->
             u.bank.any { it.question == exercise.question && it.correctAnswer == exercise.correctAnswer }
         }
         return unit?.let { EnglishGuides.forUnit(it.title) } ?: englishHelp

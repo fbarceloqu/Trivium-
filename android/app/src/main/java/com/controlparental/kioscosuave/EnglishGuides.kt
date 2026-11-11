@@ -39,9 +39,9 @@ object EnglishGuides {
             "Verbos regulares: verbo + -ed.",
             "     play → played      clean → cleaned",
             "Verbos irregulares: cambian de forma y hay que memorizarlos.",
-            "     see → saw      write → wrote",
+            "     give → gave      drink → drank",
             "Negación y preguntas: did + verbo SIN cambiar.",
-            "     'I did not play.'   'Did you see it?'",
+            "     'I did not play.'   'Did you play?'",
             "PISTAS de pasado: yesterday, last week, ago, in 2020."
         ),
         "El futuro (will / going to)" to guide(
